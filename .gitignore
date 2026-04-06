@@ -1,0 +1,25 @@
+# Binarios
+/bin/
+/dist/
+*.exe
+*.test
+
+# Go
+coverage.out
+
+# Entorno local (no versionar secretos)
+.env
+
+# IDE — ignorar casi todo .idea; versionar módulo y run configs para IntelliJ/GoLand
+.idea/*
+!.idea/modules.xml
+!.idea/runConfigurations/
+# Copias de seguridad que crea IntelliJ/GoLand al cambiar estructura del proyecto
+projectFilesBackup*/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

@@ -15,6 +15,50 @@ Este repositorio es el espacio de trabajo del **Grupo 11** para el proyecto del 
 
 ---
 
-## Documentación del proyecto
+## Backend (Go, arquitectura hexagonal)
 
-> _Pueden disponer de este espacio para documentar su proyecto._
+- **`cmd/api`:** arranque del programa (config, Postgres, Gin).
+- **`internal/domain`:** reglas y modelos de negocio (aquí irá el corazón del sistema).
+- **`internal/application`:** lógica que orquesta el dominio (ahora solo `Readiness` para comprobar la DB).
+- **`internal/adapters/inbound/http`:** rutas HTTP (Gin).
+- **`internal/adapters/outbound/postgres`:** conexión real a PostgreSQL.
+
+### Cómo correrlo localmente en tu PC
+
+1. Levanta **solo PostgreSQL**:
+
+   ```bash
+   docker compose up postgres
+   ```
+
+2. Cuando el contenedor esté *healthy*, en **otra terminal** (desde la raíz del repo):
+
+   ```bash
+   go run ./cmd/api
+   ```
+
+   Si no defines `DATABASE_URL`, el programa usa por defecto `127.0.0.1:5432` con usuario/clave `app` (igual que en `docker-compose.yml`).
+
+3. Abre en el navegador: [http://localhost:8080/health](http://localhost:8080/health) y [http://localhost:8080/health/ready](http://localhost:8080/health/ready).
+
+El API **siempre** necesita PostgreSQL accesible; si la base no está levantada, el proceso terminará con un mensaje de error al arrancar.
+
+### Comandos útiles
+
+```bash
+go mod tidy
+go test ./...
+go vet ./...
+```
+
+### Todo con Docker (API + Postgres)
+
+```bash
+docker compose up --build
+```
+
+Mismas rutas: `GET /health` y `GET /health/ready`.
+
+Variables: [.env.example](.env.example).
+
+
