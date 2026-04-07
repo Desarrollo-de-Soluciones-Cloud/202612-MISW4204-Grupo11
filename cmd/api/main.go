@@ -5,6 +5,7 @@ import (
 	"log"
 
 	httpadapter "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/http"
+	taskadapter "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/tasks"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/outbound/postgres"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/config"
@@ -35,11 +36,17 @@ Desarrollo local sin definir DATABASE_URL: se usa 127.0.0.1:5432 con usuario/cla
 	defer closeDB()
 
 	readiness := &application.Readiness{DB: pool}
-	motor := httpadapter.NuevoMotor(readiness)
+
+	taskRepo := taskadapter.NewTaskRepository()
+	taskService := taskadapter.NewTaskService(taskRepo)
+	taskHandler := taskadapter.NewTaskHandler(taskService)
+
+	motor := httpadapter.NuevoMotor(readiness, taskHandler)
 
 	log.Printf("Servidor en marcha. Prueba: http://localhost%s/health", cfg.HTTPAddr)
 
 	if err := motor.Run(cfg.HTTPAddr); err != nil {
 		log.Fatalf("el servidor HTTP se detuvo: %v", err)
 	}
+
 }

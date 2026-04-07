@@ -3,12 +3,13 @@ package httpadapter
 import (
 	"net/http"
 
+	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/tasks"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application"
 	"github.com/gin-gonic/gin"
 )
 
 // NuevoMotor crea el servidor Gin con las rutas básicas.
-func NuevoMotor(readiness *application.Readiness) *gin.Engine {
+func NuevoMotor(readiness *application.Readiness, taskHandler *tasks.TaskHandler) *gin.Engine {
 	r := gin.Default()
 
 	r.GET("/health", func(c *gin.Context) {
@@ -25,6 +26,12 @@ func NuevoMotor(readiness *application.Readiness) *gin.Engine {
 		}
 		c.JSON(http.StatusOK, gin.H{"status": "ready"})
 	})
+
+	taskRoutes := r.Group("/tasks")
+	{
+		taskRoutes.POST("", taskHandler.Create)
+		taskRoutes.GET("", taskHandler.GetAll)
+	}
 
 	return r
 }
