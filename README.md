@@ -31,6 +31,7 @@ Este repositorio es el espacio de trabajo del **Grupo 11** para el proyecto del 
    docker compose up postgres
    ```
 
+
 2. Cuando el contenedor esté *healthy*, en **otra terminal** (desde la raíz del repo):
 
    ```bash
