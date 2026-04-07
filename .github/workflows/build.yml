@@ -1,15 +1,27 @@
 name: Build
 
 on:
+  pull_request:
+    branches:
+      - develop
+      - main
+      - master
+      - "release/**"
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches:
       - main
+  workflow_dispatch:
 
+permissions:
+  contents: read
+  checks: write
 
 jobs:
   build:
     name: Build and analyze
     runs-on: ubuntu-latest
+    if: github.event_name == 'push'
     
     steps:
       - uses: actions/checkout@v4
@@ -25,3 +37,63 @@ jobs:
       #   timeout-minutes: 5
       #   env:
       #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: "true"
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: app
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: "go"
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run vet
+        run: go vet ./...
+
+      - name: Run unit tests
+        run: go test -v -coverprofile=coverage.out ./...
+        env:
+          DATABASE_URL: "postgres://app:app@localhost:5432/app?sslmode=disable"
+
+      - name: Generate coverage report
+        run: go tool cover -html=coverage.out -o coverage.html
+        if: always()
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-coverage
+          path: coverage.html
+          if-no-files-found: ignore
+
+      - name: Build
+        run: go build -o app ./cmd/api
+        env:
+          DATABASE_URL: "postgres://app:app@localhost:5432/app?sslmode=disable"
