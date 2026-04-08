@@ -8,6 +8,17 @@ const (
 	finished       Status = "fianlizado"
 )
 
+type Vinculation struct {
+	Role  string
+	Tasks []task
+}
+
+type User struct {
+	Username     string
+	Password     string
+	Vinculations []Vinculation
+}
+
 type task struct {
 	ID           string
 	Title        string

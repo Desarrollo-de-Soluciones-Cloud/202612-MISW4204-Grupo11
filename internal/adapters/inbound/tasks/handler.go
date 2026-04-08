@@ -16,13 +16,14 @@ func NewTaskHandler(service *TaskService) *TaskHandler {
 
 func (h *TaskHandler) Create(c *gin.Context) {
 	var task task
+	var u User
 
 	if err := c.ShouldBindJSON(&task); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err := h.service.Create(&task); err != nil {
+	if err := h.service.Create(&task, &u); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

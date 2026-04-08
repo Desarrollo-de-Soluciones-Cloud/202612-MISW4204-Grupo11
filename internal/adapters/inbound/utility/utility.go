@@ -1,8 +1,29 @@
-package utility
+/*package utility
 
-import userpkg "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/user"
+import (
+	pkgtask "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/tasks"
+)
 
-func limitOfTimeRecorded(user *userpkg.User) userpkg.User {
+func limitOfTimeRecorded(user *pkgtask.User, week int, newTaskHours int) bool {
+	total := 0
 
-	return *user
+	for _, vinculation := range user.Vinculations {
+		if vinculation.Role != "assistant_graduated" {
+			continue
+		}
+
+		for _, task := range vinculation.Tasks {
+			if task.Week == week {
+				total += task.TimeInvested
+			}
+		}
+	}
+
+	total += newTaskHours
+
+	if total > 22 {
+		return true
+	}
+	return false
 }
+*/

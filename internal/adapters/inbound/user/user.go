@@ -1,6 +1,6 @@
 package user
 
-type user struct {
+type User struct {
 	username string
 	password string
 }
