@@ -5,34 +5,37 @@ import (
 	"os"
 )
 
-// URL por defecto cuando corres el API en tu PC y Postgres está en Docker (puerto 5432).
-const postgresLocalPorDefecto = "postgres://app:app@127.0.0.1:5432/app?sslmode=disable"
+// defaultLocalPostgresURL matches docker-compose postgres service (app/app on localhost:5432).
+const defaultLocalPostgresURL = "postgres://app:app@127.0.0.1:5432/app?sslmode=disable"
 
 type Config struct {
-	HTTPAddr string
-	DBURL    string
+	HTTPAddr  string
+	DBURL     string
+	JWTSecret string
 }
 
+// Load reads configuration from environment variables.
 func Load() (Config, error) {
-	cfg := Config{
-		HTTPAddr: envConDefecto("HTTP_ADDR", ":8080"),
+	config := Config{
+		HTTPAddr:  envOrDefault("HTTP_ADDR", ":8080"),
+		JWTSecret: os.Getenv("JWT_SECRET"),
 	}
 
-	if cfg.HTTPAddr == "" {
-		return Config{}, fmt.Errorf("HTTP_ADDR no puede estar vacío")
+	if config.HTTPAddr == "" {
+		return Config{}, fmt.Errorf("HTTP_ADDR must not be empty")
 	}
 
-	cfg.DBURL = os.Getenv("DATABASE_URL")
-	if cfg.DBURL == "" {
-		cfg.DBURL = postgresLocalPorDefecto
+	config.DBURL = os.Getenv("DATABASE_URL")
+	if config.DBURL == "" {
+		config.DBURL = defaultLocalPostgresURL
 	}
 
-	return cfg, nil
+	return config, nil
 }
 
-func envConDefecto(nombre, defecto string) string {
-	if v := os.Getenv(nombre); v != "" {
-		return v
+func envOrDefault(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
 	}
-	return defecto
+	return fallback
 }

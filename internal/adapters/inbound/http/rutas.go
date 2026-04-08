@@ -3,28 +3,50 @@ package httpadapter
 import (
 	"net/http"
 
+	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/http/handlers"
+	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/http/middleware"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application"
+	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/domain"
 	"github.com/gin-gonic/gin"
 )
 
-// NuevoMotor crea el servidor Gin con las rutas básicas.
-func NuevoMotor(readiness *application.Readiness) *gin.Engine {
-	r := gin.Default()
+// Deps wires HTTP routes to application services and middleware.
+type Deps struct {
+	Readiness *application.Readiness
+	JWTSecret []byte
+	Auth      *handlers.Auth
+	Users     *handlers.Users
+}
 
-	r.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+// NewEngine builds the Gin engine with health, auth, and user routes.
+func NewEngine(deps Deps) *gin.Engine {
+	router := gin.Default()
+
+	router.GET("/health", func(ginCtx *gin.Context) {
+		ginCtx.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
-	r.GET("/health/ready", func(c *gin.Context) {
-		if err := readiness.Check(c.Request.Context()); err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{
+	router.GET("/health/ready", func(ginCtx *gin.Context) {
+		if readyErr := deps.Readiness.Check(ginCtx.Request.Context()); readyErr != nil {
+			ginCtx.JSON(http.StatusServiceUnavailable, gin.H{
 				"status": "unavailable",
-				"error":  err.Error(),
+				"error":  readyErr.Error(),
 			})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"status": "ready"})
+		ginCtx.JSON(http.StatusOK, gin.H{"status": "ready"})
 	})
 
-	return r
+	apiV1 := router.Group("/api/v1")
+	apiV1.POST("/auth/login", deps.Auth.PostLogin)
+
+	// First user: POST without token (body must include administrador). Later: admin JWT only.
+	apiV1.POST("/users", deps.Users.Post)
+
+	adminUsers := apiV1.Group("/users")
+	adminUsers.Use(middleware.Autenticar(deps.JWTSecret))
+	adminUsers.Use(middleware.ExigeRol(domain.RolAdministrador))
+	adminUsers.GET("", deps.Users.GetList)
+
+	return router
 }
