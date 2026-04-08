@@ -51,11 +51,13 @@ func NewEngine(deps Deps) *gin.Engine {
 
 	// RF-03: Gestión de cursos y proyectos
 	spaces := apiV1.Group("/spaces")
+	spaces.Use(middleware.Autenticar(deps.JWTSecret))
+	spaces.Use(middleware.ExigeRol(domain.RolProfesor))
 	{
-		spaces.POST("", deps.AcadSpaces.Create)           // RF-03.1
-		spaces.GET("", deps.AcadSpaces.List)              // RF-03.4
-		spaces.GET("/:id", deps.AcadSpaces.Get)           // RF-03.4, RF-03.6
-		spaces.PATCH("/:id/close", deps.AcadSpaces.Close) // RF-03.5
+		spaces.POST("", deps.AcadSpaces.Create)           
+		spaces.GET("", deps.AcadSpaces.List)              
+		spaces.GET("/:id", deps.AcadSpaces.Get)           
+		spaces.PATCH("/:id/close", deps.AcadSpaces.Close) 
 	}
 
 	return router
