@@ -68,7 +68,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.26"
-          cache: "go"
+          cache: true
 
       - name: Download dependencies
         run: go mod download
@@ -82,7 +82,12 @@ jobs:
           DATABASE_URL: "postgres://app:app@localhost:5432/app?sslmode=disable"
 
       - name: Generate coverage report
-        run: go tool cover -html=coverage.out -o coverage.html
+        run: |
+          if [ -f coverage.out ]; then
+            go tool cover -html=coverage.out -o coverage.html
+          else
+            echo "No coverage.out found, skipping coverage report"
+          fi
         if: always()
 
       - name: Upload coverage artifact
