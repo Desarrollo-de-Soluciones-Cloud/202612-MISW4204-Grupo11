@@ -3,43 +3,60 @@ package httpadapter
 import (
 	"net/http"
 
+	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/http/handlers"
+	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/http/middleware"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application"
+	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/domain"
 	"github.com/gin-gonic/gin"
 )
 
-// NuevoMotor crea el servidor Gin con las rutas básicas.
-func NuevoMotor(
-	readiness *application.Readiness,
-	spaceHandler *AcademicSpaceHandler,
-) *gin.Engine {
-	r := gin.Default()
+// Deps wires HTTP routes to application services and middleware.
+type Deps struct {
+	Readiness  *application.Readiness
+	JWTSecret  []byte
+	Auth       *handlers.Auth
+	Users      *handlers.Users
+	AcadSpaces *AcademicSpaceHandler
+}
 
-	r.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+// NewEngine builds the Gin engine with health, auth, user, and academic space routes.
+func NewEngine(deps Deps) *gin.Engine {
+	router := gin.Default()
+
+	router.GET("/health", func(ginCtx *gin.Context) {
+		ginCtx.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
-	r.GET("/health/ready", func(c *gin.Context) {
-		if err := readiness.Check(c.Request.Context()); err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{
+	router.GET("/health/ready", func(ginCtx *gin.Context) {
+		if readyErr := deps.Readiness.Check(ginCtx.Request.Context()); readyErr != nil {
+			ginCtx.JSON(http.StatusServiceUnavailable, gin.H{
 				"status": "unavailable",
-				"error":  err.Error(),
+				"error":  readyErr.Error(),
 			})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"status": "ready"})
+		ginCtx.JSON(http.StatusOK, gin.H{"status": "ready"})
 	})
 
-	// API v1 
-	v1 := r.Group("/api/v1")
+	apiV1 := router.Group("/api/v1")
+	apiV1.POST("/auth/login", deps.Auth.PostLogin)
 
-	//  Gestión de cursos y proyectos RF-03
-	spaces := v1.Group("/spaces")
+	// First user: POST without token (body must include administrador). Later: admin JWT only.
+	apiV1.POST("/users", deps.Users.Post)
+
+	adminUsers := apiV1.Group("/users")
+	adminUsers.Use(middleware.Autenticar(deps.JWTSecret))
+	adminUsers.Use(middleware.ExigeRol(domain.RolAdministrador))
+	adminUsers.GET("", deps.Users.GetList)
+
+	// RF-03: Gestión de cursos y proyectos
+	spaces := apiV1.Group("/spaces")
 	{
-		spaces.POST("", spaceHandler.Create)           // RF-03.1
-		spaces.GET("", spaceHandler.List)              // RF-03.4
-		spaces.GET("/:id", spaceHandler.Get)           // RF-03.4, RF-03.6
-		spaces.PATCH("/:id/close", spaceHandler.Close) // RF-03.5
+		spaces.POST("", deps.AcadSpaces.Create)           // RF-03.1
+		spaces.GET("", deps.AcadSpaces.List)              // RF-03.4
+		spaces.GET("/:id", deps.AcadSpaces.Get)           // RF-03.4, RF-03.6
+		spaces.PATCH("/:id/close", deps.AcadSpaces.Close) // RF-03.5
 	}
 
-	return r
+	return router
 }
