@@ -35,7 +35,15 @@ Desarrollo local sin definir DATABASE_URL: se usa 127.0.0.1:5432 con usuario/cla
 	defer closeDB()
 
 	readiness := &application.Readiness{DB: pool}
-	motor := httpadapter.NuevoMotor(readiness)
+
+	// RF-03 repositorios y servicio
+	periodRepo := postgres.NewAcademicPeriodRepo(pool)
+	spaceRepo := postgres.NewAcademicSpaceRepo(pool)
+	spaceSvc := application.NewAcademicSpaceService(spaceRepo, periodRepo)
+
+	// Handlers HTTP
+	spaceHandler := httpadapter.NewAcademicSpaceHandler(spaceSvc)
+	motor := httpadapter.NuevoMotor(readiness, spaceHandler)
 
 	log.Printf("Servidor en marcha. Prueba: http://localhost%s/health", cfg.HTTPAddr)
 
