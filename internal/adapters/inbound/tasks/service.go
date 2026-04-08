@@ -61,6 +61,15 @@ func (s *TaskService) Update(task *task) error {
 	return s.repo.Update(task)
 }
 
+func (s *TaskService) UpdateStatus(task *task) error {
+	if time.Since(task.TimeRegistered) >= 7*24*time.Hour && task.Status == StatusOpen {
+		return fmt.Errorf("ya han pasado 7 días, no se puede modificar; crea una nueva tarea")
+	}
+
+	return s.repo.UpdateStatus(task)
+
+}
+
 func (s *TaskService) UploadAttachment(taskID string, file *multipart.FileHeader) (*Attachment, error) {
 	// 1. verificar que la tarea exista
 	task, err := s.repo.GetByID(taskID)

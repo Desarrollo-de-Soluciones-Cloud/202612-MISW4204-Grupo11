@@ -63,6 +63,28 @@ func (h *TaskHandler) Update(c *gin.Context) {
 	})
 }
 
+func (h *TaskHandler) UpdateStatus(c *gin.Context) {
+	taskID := c.Param("id")
+
+	var task task
+	if err := c.ShouldBindJSON(&task); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	task.ID = taskID
+
+	err := h.service.UpdateStatus(&task)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"message": "Tarea actualizada correctamente",
+	})
+}
+
 func (h *TaskHandler) Delete(c *gin.Context) {
 	taskID := c.Param("id")
 

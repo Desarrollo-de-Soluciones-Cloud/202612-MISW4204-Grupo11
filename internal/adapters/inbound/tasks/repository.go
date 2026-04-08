@@ -11,6 +11,7 @@ type Repository interface {
 	Update(task *task) error
 	Delete(id string) error
 	SaveAttachment(attachment *Attachment) error
+	UpdateStatus(task *task) error
 }
 
 type TaskRepository struct {
@@ -65,4 +66,14 @@ func (r *TaskRepository) Delete(id string) error {
 func (r *TaskRepository) SaveAttachment(attachment *Attachment) error {
 	r.attachments = append(r.attachments, *attachment)
 	return nil
+}
+
+func (r *TaskRepository) UpdateStatus(task *task) error {
+	for i := range r.tasks {
+		if r.tasks[i].ID == task.ID {
+			r.tasks[i] = *task
+			return nil
+		}
+	}
+	return fmt.Errorf("task no se ha encontrado")
 }
