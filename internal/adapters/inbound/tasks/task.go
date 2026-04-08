@@ -1,11 +1,13 @@
 package tasks
 
+import "time"
+
 type Status string
 
 const (
-	open           Status = "Abierto"
-	in_development Status = "En desarrollo"
-	finished       Status = "fianlizado"
+	StatusOpen          Status = "Abierto"
+	StatusInDevelopment Status = "En desarrollo"
+	StatusFinalized     Status = "finalizado"
 )
 
 type Vinculation struct {
@@ -20,13 +22,14 @@ type User struct {
 }
 
 type task struct {
-	ID           string
-	Title        string
-	Description  string
-	Status       Status
-	Week         int
-	TimeInvested int
-	Observations string
+	ID             string
+	Title          string
+	Description    string
+	Status         Status
+	Week           int
+	TimeInvested   int
+	TimeRegistered time.Time
+	Observations   string
 }
 
 func newTask(title string, description string, status Status, week int, timeInvested int, observations string) *task {

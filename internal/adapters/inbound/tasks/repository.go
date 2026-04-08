@@ -1,6 +1,8 @@
 package tasks
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Repository interface {
 	Create(task *task) error
@@ -8,10 +10,12 @@ type Repository interface {
 	GetByID(id string) (*task, error)
 	Update(task *task) error
 	Delete(id string) error
+	SaveAttachment(attachment *Attachment) error
 }
 
 type TaskRepository struct {
-	tasks []task
+	tasks       []task
+	attachments []Attachment
 }
 
 func NewTaskRepository() *TaskRepository {
@@ -45,7 +49,7 @@ func (r *TaskRepository) Update(task *task) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("task not found")
+	return fmt.Errorf("task no se ha encontrado")
 }
 
 func (r *TaskRepository) Delete(id string) error {
@@ -56,4 +60,9 @@ func (r *TaskRepository) Delete(id string) error {
 		}
 	}
 	return fmt.Errorf("task not found")
+}
+
+func (r *TaskRepository) SaveAttachment(attachment *Attachment) error {
+	r.attachments = append(r.attachments, *attachment)
+	return nil
 }

@@ -31,6 +31,13 @@ func NuevoMotor(readiness *application.Readiness, taskHandler *tasks.TaskHandler
 	{
 		taskRoutes.POST("", taskHandler.Create)
 		taskRoutes.GET("", taskHandler.GetAll)
+		taskRoutes.PUT("/:id", taskHandler.Update)
+		taskRoutes.DELETE("/:id", taskHandler.Delete)
+
+		attachmentRoutes := taskRoutes.Group("/:id/attachments")
+		{
+			attachmentRoutes.POST("", taskHandler.UploadAttachment)
+		}
 	}
 
 	return r
