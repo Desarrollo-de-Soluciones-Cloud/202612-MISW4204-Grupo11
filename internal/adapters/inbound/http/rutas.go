@@ -11,11 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// NuevoMotor crea el servidor Gin con las rutas básicas.
-//
-//	func NuevoMotor(readiness *application.Readiness, taskHandler *tasks.TaskHandler) *gin.Engine {
-//		r := gin.Default()
-//
 // Deps wires HTTP routes to application services and middleware.
 type Deps struct {
 	Readiness   *application.Readiness

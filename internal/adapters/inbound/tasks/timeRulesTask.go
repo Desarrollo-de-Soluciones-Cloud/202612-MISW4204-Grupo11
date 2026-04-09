@@ -1,5 +1,9 @@
 package tasks
 
+import (
+	"time"
+)
+
 func limitOfTimeRecorded22(user *User, week int, newTaskHours int) bool {
 	total := 0
 
@@ -18,6 +22,13 @@ func limitOfTimeRecorded22(user *User, week int, newTaskHours int) bool {
 	total += newTaskHours
 
 	if total > 22 {
+		return true
+	}
+	return false
+}
+
+func verify7daysRule(task *task) bool {
+	if time.Since(task.TimeRegistered) >= 7*24*time.Hour && task.Status == StatusOpen {
 		return true
 	}
 	return false

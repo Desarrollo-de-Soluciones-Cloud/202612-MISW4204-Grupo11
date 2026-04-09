@@ -54,16 +54,20 @@ func (s *TaskService) Delete(taskID string) error {
 }
 
 func (s *TaskService) Update(task *task) error {
-	if time.Since(task.TimeRegistered) >= 7*24*time.Hour && task.Status == StatusOpen {
-		return fmt.Errorf("ya han pasado 7 días, no se puede modificar; crea una nueva tarea")
+	var result = verify7daysRule(task)
+
+	if result {
+		return fmt.Errorf("7 days have passed by, please create a new task")
 	}
 
 	return s.repo.Update(task)
 }
 
 func (s *TaskService) UpdateStatus(task *task) error {
-	if time.Since(task.TimeRegistered) >= 7*24*time.Hour && task.Status == StatusOpen {
-		return fmt.Errorf("ya han pasado 7 días, no se puede modificar; crea una nueva tarea")
+	var result = verify7daysRule(task)
+
+	if result {
+		return fmt.Errorf("7 days have passed by, please create a new task")
 	}
 
 	return s.repo.UpdateStatus(task)
@@ -107,29 +111,6 @@ func (s *TaskService) UploadAttachment(taskID string, file *multipart.FileHeader
 
 	return attachment, nil
 }
-
-/*func limitOfTimeRecorded22(user *User, week int, newTaskHours int) bool {
-	total := 0
-
-	for _, vinculation := range user.Vinculations {
-		if vinculation.Role != "assistant_graduated" {
-			continue
-		}
-
-		for _, task := range vinculation.Tasks {
-			if task.Week == week {
-				total += task.TimeInvested
-			}
-		}
-	}
-
-	total += newTaskHours
-
-	if total > 22 {
-		return true
-	}
-	return false
-}*/
 
 func saveFile(file *multipart.FileHeader, dst string) error {
 	src, err := file.Open()
