@@ -149,7 +149,7 @@ func TestTaskService_Update_ReturnsErrorWhenOldOpenTask(t *testing.T) {
 	repo.tasks[oldTask.ID] = oldTask
 	s := NewTaskService(repo)
 	err := s.Update(oldTask)
-	if err == nil || !strings.Contains(err.Error(), "ya han pasado 7 días") {
+	if err == nil || !strings.Contains(err.Error(), "7 days have passed by") {
 		t.Fatalf("expected update age validation error, got %v", err)
 	}
 }
@@ -160,7 +160,7 @@ func TestTaskService_UpdateStatus_ReturnsErrorWhenOldOpenTask(t *testing.T) {
 	repo.tasks[oldTask.ID] = oldTask
 	s := NewTaskService(repo)
 	err := s.UpdateStatus(oldTask)
-	if err == nil || !strings.Contains(err.Error(), "ya han pasado 7 días") {
+	if err == nil || !strings.Contains(err.Error(), "7 days have passed by") {
 		t.Fatalf("expected update status age validation error, got %v", err)
 	}
 }
