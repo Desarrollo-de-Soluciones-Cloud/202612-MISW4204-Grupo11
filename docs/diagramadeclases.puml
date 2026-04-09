@@ -1,0 +1,101 @@
+@startuml
+hide methods
+hide circle
+skinparam classAttributeIconSize 0
+
+entity User {
+  *id
+  --
+  name
+  email
+  password
+}
+
+entity Role {
+  *id
+  --
+  name
+}
+
+entity UserRole {
+  *user_id
+  *role_id
+}
+
+entity AcademicPeriod {
+  *id
+  --
+  code
+  start_date
+  end_date
+}
+
+entity AcademicSpace {
+  *id
+  --
+  name
+  type
+  academic_period_id
+  professor_id
+  start_date
+  end_date
+  observations
+  status
+}
+
+entity Assignment {
+  *id
+  --
+  user_id
+  academic_space_id
+  professor_id
+  role_in_assignment
+  contracted_hours_per_week
+}
+
+entity Task {
+  *id
+  --
+  assignment_id
+  title
+  description
+  status
+  week
+  hours_spent
+  observations
+  late_report
+}
+
+entity TaskAttachment {
+  *id
+  --
+  task_id
+  file_name
+}
+
+entity WeeklyReport {
+  *id
+  --
+  assignment_id
+  generated_by_professor_id
+  week
+  pdf_file
+}
+
+User ||--o{ UserRole
+Role ||--o{ UserRole
+
+AcademicPeriod ||--o{ AcademicSpace
+User ||--o{ AcademicSpace : professor_id
+
+User ||--o{ Assignment : user_id
+AcademicSpace ||--o{ Assignment
+User ||--o{ Assignment : professor_id
+
+Assignment ||--o{ Task
+Task ||--o{ TaskAttachment
+
+Assignment ||--o{ WeeklyReport
+User ||--o{ WeeklyReport : generated_by_professor_id
+
+@enduml

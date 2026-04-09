@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/http/handlers"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/tasks"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application"
 	"github.com/gin-gonic/gin"
@@ -24,8 +25,14 @@ func TestNuevoMotor_HealthAndTaskRoutes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	readiness := &application.Readiness{DB: fakePinger{err: nil}}
+	deps := Deps{
+		Readiness: readiness,
+		JWTSecret: []byte("test-secret"),
+		Auth:      &handlers.Auth{},
+		Users:     &handlers.Users{},
+	}
 	handler := tasks.NewTaskHandler(tasks.NewTaskService(tasks.NewTaskRepository()))
-	engine := NuevoMotor(readiness, handler)
+	engine := NewEngine(deps, readiness, handler)
 
 	tests := []struct {
 		name     string
@@ -68,8 +75,14 @@ func TestNuevoMotor_HealthReadyUnavailable(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	readiness := &application.Readiness{DB: fakePinger{err: errTestPing}}
+	deps := Deps{
+		Readiness: readiness,
+		JWTSecret: []byte("test-secret"),
+		Auth:      &handlers.Auth{},
+		Users:     &handlers.Users{},
+	}
 	handler := tasks.NewTaskHandler(tasks.NewTaskService(tasks.NewTaskRepository()))
-	engine := NuevoMotor(readiness, handler)
+	engine := NewEngine(deps, readiness, handler)
 
 	req := httptest.NewRequest(http.MethodGet, "/health/ready", nil)
 	rr := httptest.NewRecorder()
