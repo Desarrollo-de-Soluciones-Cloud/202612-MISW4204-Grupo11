@@ -5,11 +5,8 @@ import (
 	"log"
 
 	httpadapter "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/http"
-<<<<<<< HEAD
 	taskadapter "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/tasks"
-=======
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/http/handlers"
->>>>>>> 96ecb91399457f72bcd094a4516d2a3327c4164b
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/outbound/postgres"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/auth"
@@ -48,21 +45,18 @@ func main() {
 	adminSvc := &appusers.AdminService{Users: userRepo}
 
 	readiness := &application.Readiness{DB: pool}
-<<<<<<< HEAD
 
 	taskRepo := taskadapter.NewTaskRepository()
 	taskService := taskadapter.NewTaskService(taskRepo)
 	taskHandler := taskadapter.NewTaskHandler(taskService)
 
-	motor := httpadapter.NuevoMotor(readiness, taskHandler)
-=======
 	engine := httpadapter.NewEngine(httpadapter.Deps{
-		Readiness: readiness,
-		JWTSecret: jwtSecret,
-		Auth:      &handlers.Auth{Login: loginSvc},
-		Users:     &handlers.Users{Admin: adminSvc, JWTSecret: jwtSecret},
+		Readiness:   readiness,
+		JWTSecret:   jwtSecret,
+		Auth:        &handlers.Auth{Login: loginSvc},
+		Users:       &handlers.Users{Admin: adminSvc, JWTSecret: jwtSecret},
+		TaskHandler: taskHandler,
 	})
->>>>>>> 96ecb91399457f72bcd094a4516d2a3327c4164b
 
 	log.Printf("listening %s", cfg.HTTPAddr)
 

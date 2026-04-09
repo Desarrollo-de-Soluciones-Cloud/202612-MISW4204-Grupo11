@@ -18,14 +18,15 @@ import (
 //
 // Deps wires HTTP routes to application services and middleware.
 type Deps struct {
-	Readiness *application.Readiness
-	JWTSecret []byte
-	Auth      *handlers.Auth
-	Users     *handlers.Users
+	Readiness   *application.Readiness
+	JWTSecret   []byte
+	Auth        *handlers.Auth
+	Users       *handlers.Users
+	TaskHandler *tasks.TaskHandler
 }
 
 // NewEngine builds the Gin engine with health, auth, and user routes.
-func NewEngine(deps Deps, readiness *application.Readiness, taskHandler *tasks.TaskHandler) *gin.Engine {
+func NewEngine(deps Deps) *gin.Engine {
 	router := gin.Default()
 
 	router.GET("/health", func(ginCtx *gin.Context) {
@@ -45,21 +46,20 @@ func NewEngine(deps Deps, readiness *application.Readiness, taskHandler *tasks.T
 
 	taskRoutes := router.Group("/tasks")
 	{
-		taskRoutes.POST("", taskHandler.Create)
-		taskRoutes.GET("", taskHandler.GetAll)
-		taskRoutes.PUT("/:id", taskHandler.Update)
-		taskRoutes.DELETE("/:id", taskHandler.Delete)
+		taskRoutes.POST("", deps.TaskHandler.Create)
+		taskRoutes.GET("", deps.TaskHandler.GetAll)
+		taskRoutes.PUT("/:id", deps.TaskHandler.Update)
+		taskRoutes.DELETE("/:id", deps.TaskHandler.Delete)
 
 		attachmentRoutes := taskRoutes.Group("/:id/attachments")
 		{
-			attachmentRoutes.POST("", taskHandler.UploadAttachment)
+			attachmentRoutes.POST("", deps.TaskHandler.UploadAttachment)
 		}
 	}
 
 	apiV1 := router.Group("/api/v1")
 	apiV1.POST("/auth/login", deps.Auth.PostLogin)
 
-	// First user: POST without token (body must include administrador). Later: admin JWT only.
 	apiV1.POST("/users", deps.Users.Post)
 
 	adminUsers := apiV1.Group("/users")

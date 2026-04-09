@@ -25,14 +25,15 @@ func TestNuevoMotor_HealthAndTaskRoutes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	readiness := &application.Readiness{DB: fakePinger{err: nil}}
-	deps := Deps{
-		Readiness: readiness,
-		JWTSecret: []byte("test-secret"),
-		Auth:      &handlers.Auth{},
-		Users:     &handlers.Users{},
-	}
 	handler := tasks.NewTaskHandler(tasks.NewTaskService(tasks.NewTaskRepository()))
-	engine := NewEngine(deps, readiness, handler)
+	deps := Deps{
+		Readiness:   readiness,
+		JWTSecret:   []byte("test-secret"),
+		Auth:        &handlers.Auth{},
+		Users:       &handlers.Users{},
+		TaskHandler: handler,
+	}
+	engine := NewEngine(deps)
 
 	tests := []struct {
 		name     string
@@ -75,14 +76,15 @@ func TestNuevoMotor_HealthReadyUnavailable(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	readiness := &application.Readiness{DB: fakePinger{err: errTestPing}}
-	deps := Deps{
-		Readiness: readiness,
-		JWTSecret: []byte("test-secret"),
-		Auth:      &handlers.Auth{},
-		Users:     &handlers.Users{},
-	}
 	handler := tasks.NewTaskHandler(tasks.NewTaskService(tasks.NewTaskRepository()))
-	engine := NewEngine(deps, readiness, handler)
+	deps := Deps{
+		Readiness:   readiness,
+		JWTSecret:   []byte("test-secret"),
+		Auth:        &handlers.Auth{},
+		Users:       &handlers.Users{},
+		TaskHandler: handler,
+	}
+	engine := NewEngine(deps)
 
 	req := httptest.NewRequest(http.MethodGet, "/health/ready", nil)
 	rr := httptest.NewRecorder()
