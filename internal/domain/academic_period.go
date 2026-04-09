@@ -11,13 +11,13 @@ var ErrPeriodoCerrado = errors.New("el período académico está cerrado y no ad
 
 type AcademicPeriod struct {
 	ID        int64
-	Code      string // 
+	Code      string 
 	StartDate time.Time
 	EndDate   time.Time
-	Status    string // (active / closed)
+	Status    string 
 	CreatedAt time.Time
 }
 
-func (p AcademicPeriod) IsOpen() bool {
-	return p.Status == "active"
+func (period AcademicPeriod) IsOpen() bool {
+	return period.Status == "active"
 }

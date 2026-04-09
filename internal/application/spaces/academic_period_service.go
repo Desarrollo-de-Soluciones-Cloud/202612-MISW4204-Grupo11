@@ -22,33 +22,33 @@ type CreatePeriodInput struct {
 	EndDate   time.Time
 }
 
-func (s *AcademicPeriodService) CreatePeriod(ctx context.Context, in CreatePeriodInput) (*domain.AcademicPeriod, error) {
+func (periodService *AcademicPeriodService) CreatePeriod(ctx context.Context, in CreatePeriodInput) (*domain.AcademicPeriod, error) {
 	if !in.EndDate.After(in.StartDate) {
 		return nil, domain.ErrFechasCierreInvalidas
 	}
-	p := &domain.AcademicPeriod{
+	period := &domain.AcademicPeriod{
 		Code:      in.Code,
 		StartDate: in.StartDate,
 		EndDate:   in.EndDate,
 		Status:    "active",
 	}
-	if err := s.periods.Create(ctx, p); err != nil {
+	if err := periodService.periods.Create(ctx, period); err != nil {
 		return nil, fmt.Errorf("error al crear período: %w", err)
 	}
-	return p, nil
+	return period, nil
 }
 
-func (s *AcademicPeriodService) ListPeriods(ctx context.Context) ([]domain.AcademicPeriod, error) {
-	return s.periods.List(ctx)
+func (periodService *AcademicPeriodService) ListPeriods(ctx context.Context) ([]domain.AcademicPeriod, error) {
+	return periodService.periods.List(ctx)
 }
 
-func (s *AcademicPeriodService) ClosePeriod(ctx context.Context, id int64) error {
-	p, err := s.periods.FindByID(ctx, id)
+func (periodService *AcademicPeriodService) ClosePeriod(ctx context.Context, id int64) error {
+	period, err := periodService.periods.FindByID(ctx, id)
 	if err != nil {
 		return err
 	}
-	if !p.IsOpen() {
+	if !period.IsOpen() {
 		return domain.ErrPeriodoCerrado
 	}
-	return s.periods.UpdateStatus(ctx, id, "closed")
+	return periodService.periods.UpdateStatus(ctx, id, "closed")
 }

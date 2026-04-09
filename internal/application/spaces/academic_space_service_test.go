@@ -10,8 +10,6 @@ import (
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/domain"
 )
 
-// STUBS
-
 type stubPeriodRepo struct {
 	period  *domain.AcademicPeriod
 	periods []domain.AcademicPeriod
@@ -38,20 +36,20 @@ type stubSpaceRepo struct {
 	err    error
 }
 
-func (s *stubSpaceRepo) Create(_ context.Context, sp *domain.AcademicSpace) error {
-	sp.ID = 1
-	sp.CreatedAt = time.Now()
-	sp.UpdatedAt = time.Now()
-	return s.err
+func (spaceStub *stubSpaceRepo) Create(_ context.Context, space *domain.AcademicSpace) error {
+	space.ID = 1
+	space.CreatedAt = time.Now()
+	space.UpdatedAt = time.Now()
+	return spaceStub.err
 }
-func (s *stubSpaceRepo) FindByID(_ context.Context, _ int64) (*domain.AcademicSpace, error) {
-	return s.space, s.err
+func (spaceStub *stubSpaceRepo) FindByID(_ context.Context, _ int64) (*domain.AcademicSpace, error) {
+	return spaceStub.space, spaceStub.err
 }
-func (s *stubSpaceRepo) FindByProfessor(_ context.Context, _ int64) ([]domain.AcademicSpace, error) {
-	return s.spaces, s.err
+func (spaceStub *stubSpaceRepo) FindByProfessor(_ context.Context, _ int64) ([]domain.AcademicSpace, error) {
+	return spaceStub.spaces, spaceStub.err
 }
-func (s *stubSpaceRepo) UpdateStatus(_ context.Context, _ int64, _ string) error {
-	return s.err
+func (spaceStub *stubSpaceRepo) UpdateStatus(_ context.Context, _ int64, _ string) error {
+	return spaceStub.err
 }
 
 // HELPERS
@@ -78,8 +76,6 @@ func newSpaceSvc(spaceRepo domain.AcademicSpaceRepository, periodRepo domain.Aca
 	return spaces.NewAcademicSpaceService(spaceRepo, periodRepo)
 }
 
-
-
 func TestCreateSpaceOK(t *testing.T) {
 	svc := newSpaceSvc(&stubSpaceRepo{}, &stubPeriodRepo{period: activePeriod()})
 	space, err := svc.CreateSpace(context.Background(), validSpaceInput(1, 10))
@@ -91,7 +87,6 @@ func TestCreateSpaceOK(t *testing.T) {
 	}
 }
 
-//  no debe crear espacios en períodos cerrados 
 func TestCreateSpacePeriodoCerrado(t *testing.T) {
 	svc := newSpaceSvc(&stubSpaceRepo{}, &stubPeriodRepo{period: closedPeriod()})
 	_, err := svc.CreateSpace(context.Background(), validSpaceInput(2, 10))
@@ -100,7 +95,6 @@ func TestCreateSpacePeriodoCerrado(t *testing.T) {
 	}
 }
 
-// período no encontrado.
 func TestCreateSpacePeriodoNoEncontrado(t *testing.T) {
 	svc := newSpaceSvc(&stubSpaceRepo{}, &stubPeriodRepo{err: domain.ErrPeriodoNoEncontrado})
 	_, err := svc.CreateSpace(context.Background(), validSpaceInput(99, 10))
@@ -109,29 +103,28 @@ func TestCreateSpacePeriodoNoEncontrado(t *testing.T) {
 	}
 }
 
-// tipo inválido.
+
 func TestCreateSpaceTipoInvalido(t *testing.T) {
 	svc := newSpaceSvc(&stubSpaceRepo{}, &stubPeriodRepo{period: activePeriod()})
-	in := validSpaceInput(1, 10)
-	in.Type = "seminar"
-	_, err := svc.CreateSpace(context.Background(), in)
+	input := validSpaceInput(1, 10)
+	input.Type = "seminar"
+	_, err := svc.CreateSpace(context.Background(), input)
 	if !errors.Is(err, domain.ErrTipoEspacioInvalido) {
 		t.Errorf("esperaba ErrTipoEspacioInvalido, obtuve: %v", err)
 	}
 }
 
-// Fechas incoherentes.
 func TestCreateSpaceFechasInvalidas(t *testing.T) {
 	svc := newSpaceSvc(&stubSpaceRepo{}, &stubPeriodRepo{period: activePeriod()})
-	in := validSpaceInput(1, 10)
-	in.EndDate = in.StartDate.Add(-time.Hour)
-	_, err := svc.CreateSpace(context.Background(), in)
+	input := validSpaceInput(1, 10)
+	input.EndDate = input.StartDate.Add(-time.Hour)
+	_, err := svc.CreateSpace(context.Background(), input)
 	if !errors.Is(err, domain.ErrFechasCierreInvalidas) {
 		t.Errorf("esperaba ErrFechasCierreInvalidas, obtuve: %v", err)
 	}
 }
 
-//  un profesor no puede ver el espacio de otro 
+
 func TestGetSpaceOtroProfesor(t *testing.T) {
 	svc := newSpaceSvc(
 		&stubSpaceRepo{space: &domain.AcademicSpace{ID: 1, ProfessorID: 10, Status: "active"}},
@@ -143,7 +136,6 @@ func TestGetSpaceOtroProfesor(t *testing.T) {
 	}
 }
 
-//  cerrar un espacio ya cerrado debe fallar 
 func TestCloseSpaceYaCerrado(t *testing.T) {
 	svc := newSpaceSvc(
 		&stubSpaceRepo{space: &domain.AcademicSpace{ID: 1, ProfessorID: 10, Status: "closed"}},
