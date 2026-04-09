@@ -1,4 +1,4 @@
-package application_test
+package spaces_test
 
 import (
 	"context"
@@ -6,19 +6,30 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application"
+	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/spaces"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/domain"
 )
 
 // STUBS
 
 type stubPeriodRepo struct {
-	period *domain.AcademicPeriod
-	err    error
+	period  *domain.AcademicPeriod
+	periods []domain.AcademicPeriod
+	err     error
 }
 
 func (s *stubPeriodRepo) FindByID(_ context.Context, _ int64) (*domain.AcademicPeriod, error) {
 	return s.period, s.err
+}
+func (s *stubPeriodRepo) Create(_ context.Context, p *domain.AcademicPeriod) error {
+	p.ID = 1
+	return s.err
+}
+func (s *stubPeriodRepo) List(_ context.Context) ([]domain.AcademicPeriod, error) {
+	return s.periods, s.err
+}
+func (s *stubPeriodRepo) UpdateStatus(_ context.Context, _ int64, _ string) error {
+	return s.err
 }
 
 type stubSpaceRepo struct {
@@ -52,8 +63,8 @@ func closedPeriod() *domain.AcademicPeriod {
 	return &domain.AcademicPeriod{ID: 2, Code: "2026-10", Status: "closed"}
 }
 
-func validSpaceInput(periodID, profID int64) application.CreateSpaceInput {
-	return application.CreateSpaceInput{
+func validSpaceInput(periodID, profID int64) spaces.CreateSpaceInput {
+	return spaces.CreateSpaceInput{
 		Name:             "Ingeniería de Software",
 		Type:             domain.SpaceTypeCourse,
 		AcademicPeriodID: periodID,
@@ -63,8 +74,8 @@ func validSpaceInput(periodID, profID int64) application.CreateSpaceInput {
 	}
 }
 
-func newSpaceSvc(spaceRepo domain.AcademicSpaceRepository, periodRepo domain.AcademicPeriodRepository) *application.AcademicSpaceService {
-	return application.NewAcademicSpaceService(spaceRepo, periodRepo)
+func newSpaceSvc(spaceRepo domain.AcademicSpaceRepository, periodRepo domain.AcademicPeriodRepository) *spaces.AcademicSpaceService {
+	return spaces.NewAcademicSpaceService(spaceRepo, periodRepo)
 }
 
 
@@ -80,7 +91,7 @@ func TestCreateSpaceOK(t *testing.T) {
 	}
 }
 
-// RF-03.2: no debe crear espacios en períodos cerrados (RN-07).
+//  no debe crear espacios en períodos cerrados 
 func TestCreateSpacePeriodoCerrado(t *testing.T) {
 	svc := newSpaceSvc(&stubSpaceRepo{}, &stubPeriodRepo{period: closedPeriod()})
 	_, err := svc.CreateSpace(context.Background(), validSpaceInput(2, 10))
@@ -89,7 +100,7 @@ func TestCreateSpacePeriodoCerrado(t *testing.T) {
 	}
 }
 
-// RF-03.2: período no encontrado.
+// período no encontrado.
 func TestCreateSpacePeriodoNoEncontrado(t *testing.T) {
 	svc := newSpaceSvc(&stubSpaceRepo{}, &stubPeriodRepo{err: domain.ErrPeriodoNoEncontrado})
 	_, err := svc.CreateSpace(context.Background(), validSpaceInput(99, 10))
@@ -98,7 +109,7 @@ func TestCreateSpacePeriodoNoEncontrado(t *testing.T) {
 	}
 }
 
-// RN-06: tipo inválido.
+// tipo inválido.
 func TestCreateSpaceTipoInvalido(t *testing.T) {
 	svc := newSpaceSvc(&stubSpaceRepo{}, &stubPeriodRepo{period: activePeriod()})
 	in := validSpaceInput(1, 10)
@@ -120,7 +131,7 @@ func TestCreateSpaceFechasInvalidas(t *testing.T) {
 	}
 }
 
-// RF-03.4: un profesor no puede ver el espacio de otro (RN-03).
+//  un profesor no puede ver el espacio de otro 
 func TestGetSpaceOtroProfesor(t *testing.T) {
 	svc := newSpaceSvc(
 		&stubSpaceRepo{space: &domain.AcademicSpace{ID: 1, ProfessorID: 10, Status: "active"}},
@@ -132,7 +143,7 @@ func TestGetSpaceOtroProfesor(t *testing.T) {
 	}
 }
 
-// RF-03.5: cerrar un espacio ya cerrado debe fallar (RN-08).
+//  cerrar un espacio ya cerrado debe fallar 
 func TestCloseSpaceYaCerrado(t *testing.T) {
 	svc := newSpaceSvc(
 		&stubSpaceRepo{space: &domain.AcademicSpace{ID: 1, ProfessorID: 10, Status: "closed"}},

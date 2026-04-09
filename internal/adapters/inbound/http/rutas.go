@@ -16,7 +16,8 @@ type Deps struct {
 	JWTSecret  []byte
 	Auth       *handlers.Auth
 	Users      *handlers.Users
-	AcadSpaces *AcademicSpaceHandler
+	AcadSpaces *handlers.AcademicSpaceHandler
+	Periods    *handlers.AcademicPeriodHandler
 }
 
 // NewEngine builds the Gin engine with health, auth, user, and academic space routes.
@@ -58,6 +59,15 @@ func NewEngine(deps Deps) *gin.Engine {
 		spaces.GET("", deps.AcadSpaces.List)              
 		spaces.GET("/:id", deps.AcadSpaces.Get)           
 		spaces.PATCH("/:id/close", deps.AcadSpaces.Close) 
+	}
+
+	periods := apiV1.Group("/periods")
+	periods.Use(middleware.Autenticar(deps.JWTSecret))
+	periods.Use(middleware.ExigeRol(domain.RolAdministrador))
+	{
+		periods.POST("", deps.Periods.Create)
+		periods.GET("", deps.Periods.List)
+		periods.PATCH("/:id/close", deps.Periods.Close)
 	}
 
 	return router

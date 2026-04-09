@@ -1,4 +1,4 @@
-package httpadapter
+package handlers
 
 import (
 	"errors"
@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application"
+	appspaces"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/spaces"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/domain"
 	"github.com/gin-gonic/gin"
 )
@@ -15,10 +15,10 @@ const errNoAuth = "no autenticado"
 
 // endpoints para gestionar espacios académicos:
 type AcademicSpaceHandler struct {
-	svc *application.AcademicSpaceService
+	svc *appspaces.AcademicSpaceService
 }
 
-func NewAcademicSpaceHandler(svc *application.AcademicSpaceService) *AcademicSpaceHandler {
+func NewAcademicSpaceHandler(svc *appspaces.AcademicSpaceService) *AcademicSpaceHandler {
 	return &AcademicSpaceHandler{svc: svc}
 }
 
@@ -66,7 +66,7 @@ func (h *AcademicSpaceHandler) Create(c *gin.Context) {
 		return
 	}
 
-	space, err := h.svc.CreateSpace(c.Request.Context(), application.CreateSpaceInput{
+	space, err := h.svc.CreateSpace(c.Request.Context(), appspaces.CreateSpaceInput{
 		Name:             req.Name,
 		Type:             req.Type,
 		AcademicPeriodID: req.AcademicPeriodID,
