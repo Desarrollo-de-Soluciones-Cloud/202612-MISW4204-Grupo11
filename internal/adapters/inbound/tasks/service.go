@@ -108,7 +108,7 @@ func (s *TaskService) UploadAttachment(taskID string, file *multipart.FileHeader
 	return attachment, nil
 }
 
-func limitOfTimeRecorded22(user *User, week int, newTaskHours int) bool {
+/*func limitOfTimeRecorded22(user *User, week int, newTaskHours int) bool {
 	total := 0
 
 	for _, vinculation := range user.Vinculations {
@@ -129,7 +129,7 @@ func limitOfTimeRecorded22(user *User, week int, newTaskHours int) bool {
 		return true
 	}
 	return false
-}
+}*/
 
 func saveFile(file *multipart.FileHeader, dst string) error {
 	src, err := file.Open()
