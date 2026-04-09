@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"bytes"
+	"fmt"
 	"mime/multipart"
 	"net/http/httptest"
 	"os"
@@ -11,17 +12,20 @@ import (
 )
 
 type fakeRepo struct {
-	tasks       map[string]*task
+	tasks       map[int]*task
 	attachments []*Attachment
+	nextID      int
 }
 
 func newFakeRepo() *fakeRepo {
-	return &fakeRepo{tasks: map[string]*task{}, attachments: []*Attachment{}}
+	return &fakeRepo{tasks: map[int]*task{}, attachments: []*Attachment{}, nextID: 1}
 }
 
-func (r *fakeRepo) Create(task *task) error {
+func (repo *fakeRepo) Create(task *task) error {
+	task.ID = repo.nextID
+	repo.nextID++
 	copied := *task
-	r.tasks[task.ID] = &copied
+	repo.tasks[task.ID] = &copied
 	return nil
 }
 
@@ -34,7 +38,11 @@ func (r *fakeRepo) GetAll() ([]task, error) {
 }
 
 func (r *fakeRepo) GetByID(id string) (*task, error) {
-	task, ok := r.tasks[id]
+	var intID int
+	if _, err := fmt.Sscanf(id, "%d", &intID); err != nil {
+		return nil, errTaskNotFound
+	}
+	task, ok := r.tasks[intID]
 	if !ok {
 		return nil, errTaskNotFound
 	}
@@ -52,10 +60,14 @@ func (r *fakeRepo) Update(task *task) error {
 }
 
 func (r *fakeRepo) Delete(id string) error {
-	if _, ok := r.tasks[id]; !ok {
+	var intID int
+	if _, err := fmt.Sscanf(id, "%d", &intID); err != nil {
 		return errTaskNotFound
 	}
-	delete(r.tasks, id)
+	if _, ok := r.tasks[intID]; !ok {
+		return errTaskNotFound
+	}
+	delete(r.tasks, intID)
 	return nil
 }
 
@@ -107,7 +119,7 @@ func TestTaskService_Create_SetsIDAndTimeRegistered(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected create success, got %v", err)
 	}
-	if taskItem.ID == "" {
+	if taskItem.ID == 0 {
 		t.Fatal("expected generated ID")
 	}
 	if taskItem.TimeRegistered.IsZero() {
@@ -120,10 +132,10 @@ func TestTaskService_Create_SetsIDAndTimeRegistered(t *testing.T) {
 
 func TestTaskService_Delete_ReturnsErrorWhenOldOpenTask(t *testing.T) {
 	repo := newFakeRepo()
-	oldTask := &task{ID: "1", Status: StatusOpen, TimeRegistered: time.Now().Add(-8 * 24 * time.Hour)}
+	oldTask := &task{ID: 1, Status: StatusOpen, TimeRegistered: time.Now().Add(-8 * 24 * time.Hour)}
 	repo.tasks[oldTask.ID] = oldTask
 	s := NewTaskService(repo)
-	err := s.Delete(oldTask.ID)
+	err := s.Delete("1")
 	if err == nil || !strings.Contains(err.Error(), "ya han pasado 7 días") {
 		t.Fatalf("expected delete age validation error, got %v", err)
 	}
@@ -131,10 +143,10 @@ func TestTaskService_Delete_ReturnsErrorWhenOldOpenTask(t *testing.T) {
 
 func TestTaskService_Delete_DeletesWhenNotRestricted(t *testing.T) {
 	repo := newFakeRepo()
-	existing := &task{ID: "1", Status: StatusInDevelopment, TimeRegistered: time.Now().Add(-8 * 24 * time.Hour)}
+	existing := &task{ID: 1, Status: StatusInDevelopment, TimeRegistered: time.Now().Add(-8 * 24 * time.Hour)}
 	repo.tasks[existing.ID] = existing
 	s := NewTaskService(repo)
-	err := s.Delete(existing.ID)
+	err := s.Delete("1")
 	if err != nil {
 		t.Fatalf("expected delete success, got %v", err)
 	}
@@ -145,7 +157,7 @@ func TestTaskService_Delete_DeletesWhenNotRestricted(t *testing.T) {
 
 func TestTaskService_Update_ReturnsErrorWhenOldOpenTask(t *testing.T) {
 	repo := newFakeRepo()
-	oldTask := &task{ID: "1", Status: StatusOpen, TimeRegistered: time.Now().Add(-8 * 24 * time.Hour)}
+	oldTask := &task{ID: 1, Status: StatusOpen, TimeRegistered: time.Now().Add(-8 * 24 * time.Hour)}
 	repo.tasks[oldTask.ID] = oldTask
 	s := NewTaskService(repo)
 	err := s.Update(oldTask)
@@ -156,7 +168,7 @@ func TestTaskService_Update_ReturnsErrorWhenOldOpenTask(t *testing.T) {
 
 func TestTaskService_UpdateStatus_ReturnsErrorWhenOldOpenTask(t *testing.T) {
 	repo := newFakeRepo()
-	oldTask := &task{ID: "1", Status: StatusOpen, TimeRegistered: time.Now().Add(-8 * 24 * time.Hour)}
+	oldTask := &task{ID: 1, Status: StatusOpen, TimeRegistered: time.Now().Add(-8 * 24 * time.Hour)}
 	repo.tasks[oldTask.ID] = oldTask
 	s := NewTaskService(repo)
 	err := s.UpdateStatus(oldTask)
@@ -175,18 +187,18 @@ func TestTaskService_UploadAttachment_ReturnsErrorWhenTaskMissing(t *testing.T) 
 
 func TestTaskService_UploadAttachment_SavesFileAndAttachmentMetadata(t *testing.T) {
 	tmpRepo := newFakeRepo()
-	stored := &task{ID: "1", Status: StatusOpen, TimeRegistered: time.Now()}
+	stored := &task{ID: 1, Status: StatusOpen, TimeRegistered: time.Now()}
 	tmpRepo.tasks[stored.ID] = stored
 	s := NewTaskService(tmpRepo)
 	fileHeader := createMultipartFileHeader(t, "file", "example.txt", "hello world")
 	defer os.RemoveAll("./uploads")
 
-	attachment, err := s.UploadAttachment(stored.ID, fileHeader)
+	attachment, err := s.UploadAttachment("1", fileHeader)
 	if err != nil {
 		t.Fatalf("expected upload success, got %v", err)
 	}
-	if attachment.TaskID != stored.ID {
-		t.Fatalf("expected attachment task id %q, got %q", stored.ID, attachment.TaskID)
+	if attachment.TaskID != "1" {
+		t.Fatalf("expected attachment task id %q, got %q", "1", attachment.TaskID)
 	}
 	if attachment.FileName != "example.txt" {
 		t.Fatalf("expected attachment filename example.txt, got %q", attachment.FileName)

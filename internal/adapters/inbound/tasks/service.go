@@ -32,7 +32,6 @@ func (s *TaskService) Create(task *task, user *User) error {
 		return fmt.Errorf("No se pueden registrar mas horas, ya se paso las 22 horas.")
 	}
 
-	task.ID = uuid.NewString()
 	task.TimeRegistered = time.Now()
 	return s.repo.Create(task)
 }

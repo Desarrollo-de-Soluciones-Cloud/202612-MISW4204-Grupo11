@@ -16,16 +16,21 @@ type Repository interface {
 
 type TaskRepository struct {
 	tasks       []task
+	nextID      int
 	attachments []Attachment
 }
 
 func NewTaskRepository() *TaskRepository {
 	return &TaskRepository{
-		tasks: []task{},
+		tasks:  []task{},
+		nextID: 1,
 	}
 }
 
 func (r *TaskRepository) Create(task *task) error {
+	task.ID = r.nextID
+	r.nextID++
+
 	r.tasks = append(r.tasks, *task)
 	return nil
 }
@@ -35,8 +40,13 @@ func (r *TaskRepository) GetAll() ([]task, error) {
 }
 
 func (r *TaskRepository) GetByID(id string) (*task, error) {
+	// Parse id to int
+	var intID int
+	if _, err := fmt.Sscanf(id, "%d", &intID); err != nil {
+		return nil, fmt.Errorf("invalid id")
+	}
 	for i := range r.tasks {
-		if r.tasks[i].ID == id {
+		if r.tasks[i].ID == intID {
 			return &r.tasks[i], nil
 		}
 	}
@@ -54,8 +64,12 @@ func (r *TaskRepository) Update(task *task) error {
 }
 
 func (r *TaskRepository) Delete(id string) error {
+	var intID int
+	if _, err := fmt.Sscanf(id, "%d", &intID); err != nil {
+		return fmt.Errorf("invalid id")
+	}
 	for i := range r.tasks {
-		if r.tasks[i].ID == id {
+		if r.tasks[i].ID == intID {
 			r.tasks = append(r.tasks[:i], r.tasks[i+1:]...)
 			return nil
 		}

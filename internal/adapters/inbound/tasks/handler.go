@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -42,7 +43,7 @@ func (h *TaskHandler) GetAll(c *gin.Context) {
 }
 
 func (h *TaskHandler) Update(c *gin.Context) {
-	taskID := c.Param("id")
+	taskIDStr := c.Param("id")
 
 	var task task
 	if err := c.ShouldBindJSON(&task); err != nil {
@@ -50,6 +51,11 @@ func (h *TaskHandler) Update(c *gin.Context) {
 		return
 	}
 
+	var taskID int
+	if _, err := fmt.Sscanf(taskIDStr, "%d", &taskID); err != nil {
+		c.JSON(400, gin.H{"error": "invalid id"})
+		return
+	}
 	task.ID = taskID
 
 	err := h.service.Update(&task)
@@ -64,7 +70,7 @@ func (h *TaskHandler) Update(c *gin.Context) {
 }
 
 func (h *TaskHandler) UpdateStatus(c *gin.Context) {
-	taskID := c.Param("id")
+	taskIDStr := c.Param("id")
 
 	var task task
 	if err := c.ShouldBindJSON(&task); err != nil {
@@ -72,6 +78,11 @@ func (h *TaskHandler) UpdateStatus(c *gin.Context) {
 		return
 	}
 
+	var taskID int
+	if _, err := fmt.Sscanf(taskIDStr, "%d", &taskID); err != nil {
+		c.JSON(400, gin.H{"error": "invalid id"})
+		return
+	}
 	task.ID = taskID
 
 	err := h.service.UpdateStatus(&task)

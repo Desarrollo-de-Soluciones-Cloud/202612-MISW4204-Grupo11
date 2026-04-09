@@ -22,7 +22,7 @@ type User struct {
 }
 
 type task struct {
-	ID             string
+	ID             int
 	Title          string
 	Description    string
 	Status         Status
