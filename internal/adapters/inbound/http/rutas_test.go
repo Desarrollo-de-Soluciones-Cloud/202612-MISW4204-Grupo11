@@ -8,13 +8,45 @@ import (
 	"testing"
 
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/http/handlers"
-	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/tasks"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application"
+	apptasks "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/tasks"
+	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/domain"
+
 	"github.com/gin-gonic/gin"
 )
 
 type fakePinger struct {
 	err error
+}
+
+type fakeTaskRepo struct{}
+
+func (f fakeTaskRepo) Create(task *domain.Task) error {
+	return nil
+}
+
+func (f fakeTaskRepo) GetAll() ([]domain.Task, error) {
+	return []domain.Task{}, nil
+}
+
+func (f fakeTaskRepo) GetByID(id string) (*domain.Task, error) {
+	return nil, nil
+}
+
+func (f fakeTaskRepo) Update(task *domain.Task) error {
+	return nil
+}
+
+func (f fakeTaskRepo) Delete(id string) error {
+	return nil
+}
+
+func (f fakeTaskRepo) SaveAttachment(attachment *domain.Attachment) error {
+	return nil
+}
+
+func (f fakeTaskRepo) UpdateStatus(task *domain.Task) error {
+	return nil
 }
 
 func (f fakePinger) Ping(_ context.Context) error {
@@ -25,7 +57,8 @@ func TestNuevoMotor_HealthAndTaskRoutes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	readiness := &application.Readiness{DB: fakePinger{err: nil}}
-	handler := tasks.NewTaskHandler(tasks.NewTaskService(tasks.NewTaskRepository()))
+	handler := handlers.NewTaskHandler(apptasks.NewTaskService(fakeTaskRepo{}))
+
 	deps := Deps{
 		Readiness:   readiness,
 		JWTSecret:   []byte("test-secret"),
@@ -76,7 +109,7 @@ func TestNuevoMotor_HealthReadyUnavailable(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	readiness := &application.Readiness{DB: fakePinger{err: errTestPing}}
-	handler := tasks.NewTaskHandler(tasks.NewTaskService(tasks.NewTaskRepository()))
+	handler := handlers.NewTaskHandler(apptasks.NewTaskService(nil))
 	deps := Deps{
 		Readiness:   readiness,
 		JWTSecret:   []byte("test-secret"),

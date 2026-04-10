@@ -1,4 +1,4 @@
-package tasks
+package domain
 
 import "time"
 
@@ -12,16 +12,16 @@ const (
 
 type Vinculation struct {
 	Role  string
-	Tasks []task
+	Tasks []Task
 }
 
-type User struct {
+/*type User struct {
 	Username     string
 	Password     string
 	Vinculations []Vinculation
-}
+}*/
 
-type task struct {
+type Task struct {
 	ID             int
 	Title          string
 	Description    string
@@ -32,8 +32,8 @@ type task struct {
 	Observations   string
 }
 
-func newTask(title string, description string, status Status, week int, timeInvested int, observations string) *task {
-	return &task{
+func newTask(title string, description string, status Status, week int, timeInvested int, observations string) *Task {
+	return &Task{
 		Title:        title,
 		Description:  description,
 		Status:       status,

@@ -1,13 +1,12 @@
-package tasks
+package domain
 
 import (
 	"time"
 )
 
-func limitOfTimeRecorded22(user *User, week int, newTaskHours int) bool {
-	total := 0
+func limitOfTimeRecordedPerRole(user *User, week int, newTaskHours int) bool {
 
-	for _, vinculation := range user.Vinculations {
+	/*for _, vinculation := range user.Vinculations {
 		if vinculation.Role != "assistant_graduated" {
 			continue
 		}
@@ -23,13 +22,22 @@ func limitOfTimeRecorded22(user *User, week int, newTaskHours int) bool {
 
 	if total > 22 {
 		return true
+	}*/
+	return false
+}
+
+func verify7daysRule(task *Task) bool {
+	if time.Since(task.TimeRegistered) >= 7*24*time.Hour && task.Status == StatusOpen {
+		return true
 	}
 	return false
 }
 
-func verify7daysRule(task *task) bool {
-	if time.Since(task.TimeRegistered) >= 7*24*time.Hour && task.Status == StatusOpen {
+// Para agregar a vinculaciones RF-05.2
+func verifyNumberMonitoria(user *User) bool {
+	/*if len(user.Vinculations) > 3 {
 		return true
-	}
+	}*/
+
 	return false
 }

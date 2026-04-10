@@ -5,11 +5,11 @@ import (
 	"log"
 
 	httpadapter "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/http"
-	taskadapter "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/tasks"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/http/handlers"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/outbound/postgres"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/auth"
+	apptasks "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/tasks"
 	appusers "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/users"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/config"
 )
@@ -46,9 +46,9 @@ func main() {
 
 	readiness := &application.Readiness{DB: pool}
 
-	taskRepo := taskadapter.NewTaskRepository()
-	taskService := taskadapter.NewTaskService(taskRepo)
-	taskHandler := taskadapter.NewTaskHandler(taskService)
+	taskRepo := postgres.NewTaskRepository(db)
+	taskService := apptasks.NewTaskService(taskRepo)
+	taskHandler := handlers.NewTaskHandler(taskService)
 
 	engine := httpadapter.NewEngine(httpadapter.Deps{
 		Readiness:   readiness,

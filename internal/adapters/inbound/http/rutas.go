@@ -5,7 +5,6 @@ import (
 
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/http/handlers"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/http/middleware"
-	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/tasks"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/domain"
 	"github.com/gin-gonic/gin"
@@ -17,7 +16,7 @@ type Deps struct {
 	JWTSecret   []byte
 	Auth        *handlers.Auth
 	Users       *handlers.Users
-	TaskHandler *tasks.TaskHandler
+	TaskHandler *handlers.TaskHandler
 }
 
 // NewEngine builds the Gin engine with health, auth, and user routes.
