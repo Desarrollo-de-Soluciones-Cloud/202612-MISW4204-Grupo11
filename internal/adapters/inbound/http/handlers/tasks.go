@@ -82,6 +82,24 @@ func (h *TaskHandler) Update(c *gin.Context) {
 	})
 }
 
+func (h *TaskHandler) UpdateField(c *gin.Context) {
+	taskID := c.Param("id")
+
+	var input apptasks.UpdateTaskInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	task, err := h.service.PartialUpdate(taskID, input)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, task)
+}
+
 func (h *TaskHandler) UpdateStatus(c *gin.Context) {
 	taskIDStr := c.Param("id")
 

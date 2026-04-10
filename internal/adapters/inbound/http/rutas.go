@@ -42,6 +42,7 @@ func NewEngine(deps Deps) *gin.Engine {
 	{
 		taskRoutes.POST("", deps.TaskHandler.Create)
 		taskRoutes.GET("", deps.TaskHandler.GetAll)
+		taskRoutes.PATCH("/:id", deps.TaskHandler.UpdateField)
 		taskRoutes.PUT("/:id", deps.TaskHandler.Update)
 		taskRoutes.DELETE("/:id", deps.TaskHandler.Delete)
 

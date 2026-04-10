@@ -237,22 +237,23 @@ func (repository *taskRepository) UpdateStatus(task *domain.Task) error {
 func (repository *taskRepository) SaveAttachment(attachment *domain.Attachment) error {
 	const query = `
 		INSERT INTO attachments (
-			id,
 			task_id,
 			file_name,
+			content_type,
 			storage_path
 		)
-		VALUES ($1, $2, $3, $4);
+		VALUES ($1, $2, $3, $4)
+		RETURNING id;
 	`
 
-	_, err := repository.db.Exec(
+	err := repository.db.QueryRow(
 		context.Background(),
 		query,
-		attachment.ID,
 		attachment.TaskID,
 		attachment.FileName,
+		attachment.ContentType,
 		attachment.StoragePath,
-	)
+	).Scan(&attachment.ID)
 	if err != nil {
 		return fmt.Errorf("error saving attachment: %w", err)
 	}

@@ -1,8 +1,8 @@
 package domain
 
 type Attachment struct {
-	ID          string
-	TaskID      string
+	ID          int
+	TaskID      int
 	FileName    string
 	ContentType string
 	StoragePath string

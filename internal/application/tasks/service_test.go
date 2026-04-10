@@ -417,7 +417,7 @@ func TestTaskService_UploadAttachment_SavesFileAndAttachmentMetadata(t *testing.
 		t.Fatalf("expected upload success, got %v", err)
 	}
 
-	if attachment.TaskID != "1" {
+	if attachment.TaskID != 1 {
 		t.Fatalf("expected attachment task id %q, got %q", "1", attachment.TaskID)
 	}
 
@@ -431,6 +431,10 @@ func TestTaskService_UploadAttachment_SavesFileAndAttachmentMetadata(t *testing.
 
 	if len(repo.attachments) != 1 {
 		t.Fatalf("expected repository to store one attachment, got %d", len(repo.attachments))
+	}
+
+	if attachment.ID == 0 {
+		t.Fatal("expected generated attachment ID")
 	}
 }
 

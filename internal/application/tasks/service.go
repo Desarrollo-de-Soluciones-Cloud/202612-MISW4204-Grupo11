@@ -10,15 +10,21 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/ports"
-
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/domain"
 )
 
 type TaskService struct {
 	repo ports.TaskRepository
+}
+
+type UpdateTaskInput struct {
+	Title        *string
+	Description  *string
+	Status       *domain.Status
+	Week         *int
+	TimeInvested *int
+	Observations *string
 }
 
 func NewTaskService(repo ports.TaskRepository) *TaskService {
@@ -46,6 +52,7 @@ func (s *TaskService) Create(task *domain.Task) error {
 		return fmt.Errorf("time invested must be greater than 0")
 	}
 
+	//PARA REVISAR, POR QUE ES LA SUMA DE TODAS LAS TAREAS.
 	if task.TimeInvested > 22 {
 		return fmt.Errorf("no se pueden registrar más de 22 horas en una sola tarea")
 	}
@@ -121,6 +128,61 @@ func (s *TaskService) Update(task *domain.Task) error {
 	return s.repo.Update(task)
 }
 
+func (s *TaskService) PartialUpdate(id string, input UpdateTaskInput) (*domain.Task, error) {
+	task, err := s.repo.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	if isPast7Days(task.TimeRegistered) {
+		return nil, fmt.Errorf("7 days have passed by, please create a new task")
+	}
+
+	if input.Title != nil {
+		task.Title = strings.TrimSpace(*input.Title)
+	}
+	if input.Description != nil {
+		task.Description = strings.TrimSpace(*input.Description)
+	}
+	if input.Status != nil {
+		task.Status = *input.Status
+	}
+	if input.Week != nil {
+		task.Week = *input.Week
+	}
+	if input.TimeInvested != nil {
+		task.TimeInvested = *input.TimeInvested
+	}
+	if input.Observations != nil {
+		task.Observations = *input.Observations
+	}
+
+	if strings.TrimSpace(task.Title) == "" {
+		return nil, fmt.Errorf("title is required")
+	}
+	if strings.TrimSpace(task.Description) == "" {
+		return nil, fmt.Errorf("description is required")
+	}
+	if strings.TrimSpace(string(task.Status)) == "" {
+		return nil, fmt.Errorf("status is required")
+	}
+	if task.Week <= 0 {
+		return nil, fmt.Errorf("week must be greater than 0")
+	}
+	if task.TimeInvested <= 0 {
+		return nil, fmt.Errorf("time invested must be greater than 0")
+	}
+	if task.TimeInvested > 22 {
+		return nil, fmt.Errorf("no se pueden registrar más de 22 horas en una sola tarea")
+	}
+
+	if err := s.repo.Update(task); err != nil {
+		return nil, err
+	}
+
+	return task, nil
+}
+
 func (s *TaskService) UpdateStatus(task *domain.Task) error {
 	if task.ID <= 0 {
 		return fmt.Errorf("invalid task id")
@@ -150,17 +212,24 @@ func (s *TaskService) UploadAttachment(taskID string, file *multipart.FileHeader
 		return nil, fmt.Errorf("task not found")
 	}
 
-	attachmentID := uuid.NewString()
-	filePath := fmt.Sprintf("./uploads/%s_%s", attachmentID, file.Filename)
+	taskIDInt, err := strconv.Atoi(taskID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid task id")
+	}
+
+	uniqueName := fmt.Sprintf("%d_%s", time.Now().UnixNano(), file.Filename)
+	filePath := filepath.Join("./uploads", uniqueName)
 
 	if err := saveFile(file, filePath); err != nil {
 		return nil, fmt.Errorf("could not save file: %w", err)
 	}
 
+	contentType := file.Header.Get("Content-Type")
+
 	attachment := &domain.Attachment{
-		ID:          attachmentID,
-		TaskID:      taskID,
+		TaskID:      taskIDInt,
 		FileName:    file.Filename,
+		ContentType: contentType,
 		StoragePath: filePath,
 	}
 
