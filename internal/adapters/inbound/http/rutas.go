@@ -17,9 +17,11 @@ type Deps struct {
 	Auth        *handlers.Auth
 	Users       *handlers.Users
 	TaskHandler *handlers.TaskHandler
+	AcadSpaces  *handlers.AcademicSpaceHandler
+	Periods     *handlers.AcademicPeriodHandler
 }
 
-// NewEngine builds the Gin engine with health, auth, and user routes.
+// NewEngine builds the Gin engine with health, auth, user, and academic space routes.
 func NewEngine(deps Deps) *gin.Engine {
 	router := gin.Default()
 
@@ -61,6 +63,26 @@ func NewEngine(deps Deps) *gin.Engine {
 	adminUsers.Use(middleware.Autenticar(deps.JWTSecret))
 	adminUsers.Use(middleware.ExigeRol(domain.RolAdministrador))
 	adminUsers.GET("", deps.Users.GetList)
+
+	// RF-03: Gestión de cursos y proyectos
+	spaces := apiV1.Group("/spaces")
+	spaces.Use(middleware.Autenticar(deps.JWTSecret))
+	spaces.Use(middleware.ExigeRol(domain.RolProfesor))
+	{
+		spaces.POST("", deps.AcadSpaces.Create)
+		spaces.GET("", deps.AcadSpaces.List)
+		spaces.GET("/:id", deps.AcadSpaces.Get)
+		spaces.PATCH("/:id/close", deps.AcadSpaces.Close)
+	}
+
+	periods := apiV1.Group("/periods")
+	periods.Use(middleware.Autenticar(deps.JWTSecret))
+	periods.Use(middleware.ExigeRol(domain.RolAdministrador))
+	{
+		periods.POST("", deps.Periods.Create)
+		periods.GET("", deps.Periods.List)
+		periods.PATCH("/:id/close", deps.Periods.Close)
+	}
 
 	return router
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/outbound/postgres"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/auth"
+	appspaces "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/spaces"
 	apptasks "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/tasks"
 	appusers "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/users"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/config"
@@ -44,6 +45,14 @@ func main() {
 	loginSvc := &auth.LoginService{Users: userRepo, Secret: jwtSecret}
 	adminSvc := &appusers.AdminService{Users: userRepo}
 
+	// RF-03 repositorios y servicio
+	periodRepo := postgres.NewAcademicPeriodRepo(pool)
+	spaceRepo := postgres.NewAcademicSpaceRepo(pool)
+	spaceSvc := appspaces.NewAcademicSpaceService(spaceRepo, periodRepo)
+	spaceHandler := handlers.NewAcademicSpaceHandler(spaceSvc)
+	periodSvc := appspaces.NewAcademicPeriodService(periodRepo)
+	periodHandler := handlers.NewAcademicPeriodHandler(periodSvc)
+
 	readiness := &application.Readiness{DB: pool}
 
 	taskRepo := postgres.NewTaskRepository(db)
@@ -56,6 +65,8 @@ func main() {
 		Auth:        &handlers.Auth{Login: loginSvc},
 		Users:       &handlers.Users{Admin: adminSvc, JWTSecret: jwtSecret},
 		TaskHandler: taskHandler,
+		AcadSpaces:  spaceHandler,
+		Periods:     periodHandler,
 	})
 
 	log.Printf("listening %s", cfg.HTTPAddr)
