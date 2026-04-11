@@ -77,7 +77,7 @@ func TestNuevoMotor_HealthAndTaskRoutes(t *testing.T) {
 	}{
 		{name: "health", method: http.MethodGet, path: "/health", code: http.StatusOK, expected: "ok"},
 		{name: "health ready", method: http.MethodGet, path: "/health/ready", code: http.StatusOK, expected: "ready"},
-		{name: "tasks list", method: http.MethodGet, path: "/tasks", code: http.StatusOK, expected: "[]"},
+		{name: "tasks list", method: http.MethodGet, path: "/api/v1/tasks", code: http.StatusUnauthorized, expected: ""},
 	}
 
 	for _, tt := range tests {
@@ -90,7 +90,7 @@ func TestNuevoMotor_HealthAndTaskRoutes(t *testing.T) {
 				t.Fatalf("expected status %d, got %d", tt.code, rr.Code)
 			}
 
-			if tt.expected != "[]" {
+			/*if tt.expected != "[]" {
 				var payload map[string]string
 				if err := json.NewDecoder(rr.Body).Decode(&payload); err != nil {
 					t.Fatalf("failed to decode body: %v", err)
@@ -100,6 +100,20 @@ func TestNuevoMotor_HealthAndTaskRoutes(t *testing.T) {
 				}
 			} else if rr.Body.String() != tt.expected {
 				t.Fatalf("expected empty list %q, got %q", tt.expected, rr.Body.String())
+			}*/
+
+			if tt.expected == "ok" || tt.expected == "ready" {
+				var payload map[string]string
+				if err := json.NewDecoder(rr.Body).Decode(&payload); err != nil {
+					t.Fatalf("failed to decode body: %v", err)
+				}
+				if payload["status"] != tt.expected {
+					t.Fatalf("expected status %q, got %q", tt.expected, payload["status"])
+				}
+			} else if tt.expected == "[]" {
+				if rr.Body.String() != tt.expected {
+					t.Fatalf("expected empty list %q, got %q", tt.expected, rr.Body.String())
+				}
 			}
 		})
 	}

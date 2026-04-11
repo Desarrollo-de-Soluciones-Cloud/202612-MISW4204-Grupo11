@@ -85,6 +85,8 @@ func (repo *fakeRepo) Delete(id string) error {
 }
 
 func (repo *fakeRepo) SaveAttachment(attachment *domain.Attachment) error {
+	attachment.ID = repo.nextID
+	repo.nextID++
 	repo.attachments = append(repo.attachments, attachment)
 	return nil
 }
