@@ -189,6 +189,16 @@ func (f *fakeAssignmentRepo) Update(_ context.Context, _ *domain.Assignment) err
 	return nil
 }
 
+func (f *fakeAssignmentRepo) ListAll(_ context.Context) ([]domain.Assignment, error) {
+	out := make([]domain.Assignment, 0, len(f.byID))
+	for _, a := range f.byID {
+		if a != nil {
+			out = append(out, *a)
+		}
+	}
+	return out, nil
+}
+
 func newTaskServiceForTest(repo *fakeRepo) *TaskService {
 	return NewTaskService(repo, newFakeAssignmentRepo())
 }

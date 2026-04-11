@@ -15,6 +15,7 @@ type Deps struct {
 	JWTSecret   []byte
 	Auth        *handlers.Auth
 	Users       *handlers.Users
+	Admin       *handlers.Admin
 	TaskHandler *handlers.TaskHandler
 	AcadSpaces  *handlers.AcademicSpaceHandler
 	Periods     *handlers.AcademicPeriodHandler
@@ -103,10 +104,19 @@ func NewEngine(deps Deps) *gin.Engine {
 	adminTasks.Use(middleware.ExigeRol(domain.RolAdministrador))
 	adminTasks.GET("", deps.TaskHandler.AdminList)
 
+	adminRoot := apiV1.Group("/admin")
+	adminRoot.Use(middleware.Autenticar(deps.JWTSecret))
+	adminRoot.Use(middleware.ExigeRol(domain.RolAdministrador))
+	{
+		adminRoot.GET("/overview", deps.Admin.GetOverview)
+		adminRoot.GET("/spaces", deps.AcadSpaces.ListAllForAdmin)
+	}
+
 	adminAssignments := apiV1.Group("/admin/assignments")
 	adminAssignments.Use(middleware.Autenticar(deps.JWTSecret))
 	adminAssignments.Use(middleware.ExigeRol(domain.RolAdministrador))
 	{
+		adminAssignments.GET("", deps.Assignments.ListAllForAdmin)
 		adminAssignments.PATCH("/:assignmentID", deps.Assignments.UpdateByAdmin)
 	}
 

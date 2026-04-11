@@ -61,7 +61,6 @@ func (service *AssignmentService) CreateAssignment(ctx context.Context, input Cr
 		return nil, domain.ErrEspacioCerradoVinculacion
 	}
 
-	
 	period, err := service.periodRepo.FindByID(ctx, space.AcademicPeriodID)
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener período académico: %w", err)
@@ -71,7 +70,6 @@ func (service *AssignmentService) CreateAssignment(ctx context.Context, input Cr
 		return nil, domain.ErrPeriodoCerradoVinculacion
 	}
 
-	
 	if space.StartDate.Before(period.StartDate) || space.EndDate.After(period.EndDate) {
 		return nil, domain.ErrFechasEspacioFueraDelPeriodo
 	}
@@ -133,6 +131,10 @@ func (service *AssignmentService) ListAssignmentsByUser(ctx context.Context, use
 
 func (service *AssignmentService) ListAssignmentsByProfessor(ctx context.Context, professorID int64) ([]domain.AssignmentWithUser, error) {
 	return service.assignmentRepo.FindByProfessorWithUser(ctx, professorID)
+}
+
+func (service *AssignmentService) ListAllAssignments(ctx context.Context) ([]domain.Assignment, error) {
+	return service.assignmentRepo.ListAll(ctx)
 }
 
 type UpdateAssignmentInput struct {

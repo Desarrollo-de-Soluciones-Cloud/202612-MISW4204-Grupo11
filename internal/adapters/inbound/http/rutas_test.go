@@ -3,12 +3,15 @@ package httpadapter
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/http/handlers"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application"
+	appadmin "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/admin"
+	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/ports"
 	apptasks "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/tasks"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/domain"
 
@@ -41,6 +44,55 @@ func (fakeAssignmentRepoForRoutes) FindByProfessorWithUser(_ context.Context, _ 
 	return nil, nil
 }
 func (fakeAssignmentRepoForRoutes) Update(_ context.Context, _ *domain.Assignment) error { return nil }
+
+func (fakeAssignmentRepoForRoutes) ListAll(_ context.Context) ([]domain.Assignment, error) {
+	return nil, nil
+}
+
+type stubUserRepoForRoutes struct{}
+
+func (stubUserRepoForRoutes) FindCredentialsByEmail(_ context.Context, _ string) (*domain.UserCredentials, error) {
+	return nil, errors.New("stub")
+}
+func (stubUserRepoForRoutes) CreateUser(_ context.Context, _, _, _ string, _ []string) (int64, error) {
+	return 0, nil
+}
+func (stubUserRepoForRoutes) ListUsers(_ context.Context) ([]domain.User, error) {
+	return nil, nil
+}
+func (stubUserRepoForRoutes) EmailExists(_ context.Context, _ string) (bool, error) {
+	return false, nil
+}
+func (stubUserRepoForRoutes) CountUsers(_ context.Context) (int64, error) {
+	return 0, nil
+}
+
+var _ ports.UserRepository = stubUserRepoForRoutes{}
+
+type fakePeriodRepoForRoutes struct{}
+
+func (fakePeriodRepoForRoutes) FindByID(_ context.Context, _ int64) (*domain.AcademicPeriod, error) {
+	return nil, nil
+}
+func (fakePeriodRepoForRoutes) Create(_ context.Context, _ *domain.AcademicPeriod) error { return nil }
+func (fakePeriodRepoForRoutes) List(_ context.Context) ([]domain.AcademicPeriod, error) {
+	return nil, nil
+}
+func (fakePeriodRepoForRoutes) UpdateStatus(_ context.Context, _ int64, _ string) error { return nil }
+
+type fakeSpaceRepoForRoutes struct{}
+
+func (fakeSpaceRepoForRoutes) Create(_ context.Context, _ *domain.AcademicSpace) error { return nil }
+func (fakeSpaceRepoForRoutes) FindByID(_ context.Context, _ int64) (*domain.AcademicSpace, error) {
+	return nil, nil
+}
+func (fakeSpaceRepoForRoutes) FindByProfessor(_ context.Context, _ int64) ([]domain.AcademicSpace, error) {
+	return nil, nil
+}
+func (fakeSpaceRepoForRoutes) ListAll(_ context.Context) ([]domain.AcademicSpace, error) {
+	return nil, nil
+}
+func (fakeSpaceRepoForRoutes) UpdateStatus(_ context.Context, _ int64, _ string) error { return nil }
 
 type fakeTaskRepo struct{}
 
@@ -88,6 +140,17 @@ func (f fakePinger) Ping(_ context.Context) error {
 	return f.err
 }
 
+func testAdminHandler() *handlers.Admin {
+	overview := appadmin.NewPlatformOverviewService(
+		stubUserRepoForRoutes{},
+		fakePeriodRepoForRoutes{},
+		fakeSpaceRepoForRoutes{},
+		fakeAssignmentRepoForRoutes{},
+		fakeTaskRepo{},
+	)
+	return handlers.NewAdminHandler(overview)
+}
+
 func TestNuevoMotor_HealthAndTaskRoutes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -99,6 +162,7 @@ func TestNuevoMotor_HealthAndTaskRoutes(t *testing.T) {
 		JWTSecret:   []byte("test-secret"),
 		Auth:        &handlers.Auth{},
 		Users:       &handlers.Users{},
+		Admin:       testAdminHandler(),
 		TaskHandler: handler,
 		AcadSpaces:  &handlers.AcademicSpaceHandler{},
 		Periods:     &handlers.AcademicPeriodHandler{},
@@ -155,6 +219,7 @@ func TestNuevoMotor_HealthReadyUnavailable(t *testing.T) {
 		JWTSecret:   []byte("test-secret"),
 		Auth:        &handlers.Auth{},
 		Users:       &handlers.Users{},
+		Admin:       testAdminHandler(),
 		TaskHandler: handler,
 		AcadSpaces:  &handlers.AcademicSpaceHandler{},
 		Periods:     &handlers.AcademicPeriodHandler{},

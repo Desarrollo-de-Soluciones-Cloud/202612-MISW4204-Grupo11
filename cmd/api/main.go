@@ -8,6 +8,7 @@ import (
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/http/handlers"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/outbound/postgres"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application"
+	appadmin "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/admin"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/auth"
 	appspaces "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/spaces"
 	apptasks "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/tasks"
@@ -62,11 +63,21 @@ func main() {
 	taskService := apptasks.NewTaskService(taskRepo, assignmentRepo)
 	taskHandler := handlers.NewTaskHandler(taskService)
 
+	platformOverview := appadmin.NewPlatformOverviewService(
+		userRepo,
+		periodRepo,
+		spaceRepo,
+		assignmentRepo,
+		taskRepo,
+	)
+	adminHandler := handlers.NewAdminHandler(platformOverview)
+
 	engine := httpadapter.NewEngine(httpadapter.Deps{
 		Readiness:   readiness,
 		JWTSecret:   jwtSecret,
 		Auth:        &handlers.Auth{Login: loginSvc},
 		Users:       &handlers.Users{Admin: adminSvc, JWTSecret: jwtSecret},
+		Admin:       adminHandler,
 		TaskHandler: taskHandler,
 		AcadSpaces:  spaceHandler,
 		Periods:     periodHandler,

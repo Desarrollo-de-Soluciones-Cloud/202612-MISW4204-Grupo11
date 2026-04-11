@@ -41,6 +41,10 @@ func (stub *stubAssignmentRepo) FindByProfessorWithUser(_ context.Context, _ int
 	return nil, stub.err
 }
 
+func (stub *stubAssignmentRepo) ListAll(_ context.Context) ([]domain.Assignment, error) {
+	return stub.assignments, stub.err
+}
+
 type stubSpaceRepo struct {
 	space  *domain.AcademicSpace
 	spaces []domain.AcademicSpace
@@ -59,6 +63,16 @@ func (stubSpace *stubSpaceRepo) FindByProfessor(_ context.Context, _ int64) ([]d
 }
 func (stubSpace *stubSpaceRepo) UpdateStatus(_ context.Context, _ int64, _ string) error {
 	return stubSpace.err
+}
+
+func (stubSpace *stubSpaceRepo) ListAll(_ context.Context) ([]domain.AcademicSpace, error) {
+	if len(stubSpace.spaces) > 0 {
+		return stubSpace.spaces, stubSpace.err
+	}
+	if stubSpace.space != nil {
+		return []domain.AcademicSpace{*stubSpace.space}, stubSpace.err
+	}
+	return nil, stubSpace.err
 }
 
 type stubPeriodRepo struct {
@@ -239,7 +253,7 @@ func TestCreateAssignmentFechasEspacioFueraDelPeriodo(t *testing.T) {
 				ProfessorID:      10,
 				AcademicPeriodID: 1,
 				Status:           "active",
-				StartDate:        time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), 
+				StartDate:        time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 				EndDate:          time.Date(2024, 3, 31, 0, 0, 0, 0, time.UTC),
 			},
 		},
@@ -251,7 +265,7 @@ func TestCreateAssignmentFechasEspacioFueraDelPeriodo(t *testing.T) {
 				AcademicPeriodID: 1,
 				Status:           "active",
 				StartDate:        time.Date(2024, 2, 1, 0, 0, 0, 0, time.UTC),
-				EndDate:          time.Date(2024, 7, 1, 0, 0, 0, 0, time.UTC), 
+				EndDate:          time.Date(2024, 7, 1, 0, 0, 0, 0, time.UTC),
 			},
 		},
 	}
