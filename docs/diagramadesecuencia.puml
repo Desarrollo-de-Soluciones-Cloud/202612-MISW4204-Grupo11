@@ -1,0 +1,149 @@
+@startuml secuencias-principales
+!theme plain
+
+title Secuencias principales — Autenticación, vinculación, tareas, reportes IA y admin
+
+' --- Dividir en tres diagramas con saltos de página sería ideal en PDF;
+' aquí se usan separadores con títulos.
+' BD: un solo participante para todo el diagrama (misma base de datos).
+
+== SEC-1: Inicio de sesión y recordatorios visibles (RF-01, RF-13) ==
+
+actor "Usuario" as U
+participant "Cliente web" as W
+participant "API + Auth" as API
+database "BD" as DB
+
+U -> W : identificador + contraseña
+W -> API : POST /login
+API -> DB : validar credenciales
+DB --> API : usuario + roles
+API --> W : sesión / token
+W -> API : GET /notificaciones?destacadas=true
+API -> DB : notificaciones no leídas\n(recordatorio viernes, etc.)
+DB --> API
+API --> W : lista para banner\nal iniciar sesión
+
+== SEC-2: Profesor crea vinculación con validaciones bloqueantes (RF-04, RF-05) ==
+
+actor "Profesor" as P
+participant "Cliente" as C
+participant "API" as API2
+participant "Servicio\nVinculaciones" as SV
+
+P -> C : datos vinculación\n(usuario, espacio, rol, horas)
+C -> API2 : POST /vinculaciones
+API2 -> SV : validar reglas negocio\n(RN-14..19, espacio activo)
+SV -> DB : cargar vinculaciones activas\ndel usuario (por rol)
+DB --> SV
+alt violación (ej. >22h AG o regla 40%)
+  SV --> API2 : rechazo 4xx + mensaje
+  API2 --> C : error bloqueante
+else OK
+  SV -> DB : INSERT vinculacion
+  DB --> SV
+  SV --> API2 : 201 creado
+  API2 --> C : confirmación
+end
+
+== SEC-3: Operativo registra tarea — semana abierta vs tardía (RF-06, RF-08) ==
+
+actor "Monitor / AG" as O
+participant "Cliente" as C3
+participant "API" as API3
+participant "Servicio\nSemana + Tareas" as ST
+
+O -> C3 : nueva tarea\n(semana, datos)
+C3 -> API3 : POST /tareas
+API3 -> ST : validar curso/proyecto\nno cerrado (RN-09)
+ST -> ST : calcular si semana\nes pasada respecto\na "hoy" (cierre domingo)
+alt semana ya cerrada
+  ST -> DB : INSERT tarea\nreporte_tardio=true
+  note right: RF-08.4 / RN-32\ninmutable tras creación (RN-33)
+  DB --> ST
+  ST --> API3 : 201 tardío
+else semana vigente o futura\n(según política definida)
+  ST -> DB : INSERT tarea\nreporte_tardio=false
+  DB --> ST
+  ST --> API3 : 201 editable\nhasta cierre semana
+end
+API3 --> C3 : respuesta
+
+== SEC-4: Profesor consulta seguimiento con "sin reporte" (RF-09, RF-10) ==
+
+actor "Profesor" as P2
+participant "API" as API4
+participant "Servicio\nSeguimiento" as SS
+
+P2 -> API4 : GET /seguimiento?semana=...
+API4 -> SS : personas vinculadas\nal profesor
+SS -> DB : vinculaciones + tareas\nde la semana
+DB --> SS
+SS -> SS : por cada vinculación:\n¿hay tareas?\n→ consolidar tiempo\n→ marcar SIN_REPORTE si vacío
+SS --> API4 : DTO vista principal
+API4 --> P2 : listado personas,\nestados, tiempos
+
+== SEC-5: Profesor — reportes semanales con IA (RF-14) ==
+
+actor "Profesor" as P3
+participant "Cliente" as C6
+participant "API" as API6
+participant "Servicio\nReportes + IA" as SR
+participant "IA generativa\n(proveedor externo)" as IA
+
+P3 -> C6 : dispara generación\npor semana (RF-14.1, 14.7)
+C6 -> API6 : POST /reportes/generar\n(o job por lotes)\nBearer profesor
+API6 -> SR : ejecutar lote\námbito: semana N
+SR -> DB : tareas, descripciones,\nobservaciones, horas\npor vinculado del profesor\n(RF-14.3)
+DB --> SR
+loop por cada monitor / AG (RF-14.2)
+  SR -> IA : insumos de la semana\n(solo datos permitidos)
+  IA --> SR : texto resumen
+  SR -> SR : componer PDF (RF-14.4)
+  SR -> DB : persistir PDF\n(RF-14.5)
+  DB --> SR
+end
+SR --> API6 : resultado lote\n(ids / estado)
+API6 --> C6 : confirmación
+C6 --> P3 : lista reportes generados
+
+P3 -> C6 : descarga posterior (RF-14.6)
+C6 -> API6 : GET /reportes/:id/pdf\nBearer profesor
+API6 -> DB : recuperar PDF almacenado
+DB --> API6
+API6 --> C6 : stream / archivo PDF
+C6 --> P3 : descarga
+
+== SEC-6: Administrador — vista global de plataforma (RF-15.1) ==
+
+actor "Administrador" as ADM
+participant "Cliente" as C5
+participant "API" as API5
+participant "Servicio\nResumen plataforma" as OP
+
+ADM -> C5 : solicita vista global\n(dashboard / consolidado)
+C5 -> API5 : GET /api/v1/admin/overview\nAuthorization: Bearer …
+API5 -> API5 : validar JWT\nrol administrador
+API5 -> OP : GetOverview()
+OP -> DB : listar usuarios
+DB --> OP
+OP -> DB : listar períodos académicos
+DB --> OP
+OP -> DB : listar todos los espacios
+DB --> OP
+OP -> DB : listar todas las vinculaciones
+DB --> OP
+OP -> DB : listar todas las tareas
+DB --> OP
+OP --> API5 : PlatformOverview\n(users, academic_periods,\nacademic_spaces, assignments, tasks)
+API5 --> C5 : 200 JSON\n(mismas claves que arriba)
+
+note right of API5
+  La API también expone, con el mismo rol:
+  GET /api/v1/admin/spaces
+  GET /api/v1/admin/assignments
+  GET /api/v1/admin/tasks
+  (mismo dato que en overview, por recurso)
+end note
+
+@enduml
