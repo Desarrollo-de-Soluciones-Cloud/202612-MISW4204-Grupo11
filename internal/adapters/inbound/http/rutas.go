@@ -40,20 +40,6 @@ func NewEngine(deps Deps) *gin.Engine {
 		ginCtx.JSON(http.StatusOK, gin.H{"status": "ready"})
 	})
 
-	/*taskRoutes := router.Group("/tasks")
-	{
-		taskRoutes.POST("", deps.TaskHandler.Create)
-		taskRoutes.GET("", deps.TaskHandler.GetAll)
-		taskRoutes.PATCH("/:id", deps.TaskHandler.UpdateField)
-		taskRoutes.PUT("/:id", deps.TaskHandler.Update)
-		taskRoutes.DELETE("/:id", deps.TaskHandler.Delete)
-
-		attachmentRoutes := taskRoutes.Group("/:id/attachments")
-		{
-			attachmentRoutes.POST("", deps.TaskHandler.UploadAttachment)
-		}
-	}*/
-
 	apiV1 := router.Group("/api/v1")
 	apiV1.POST("/auth/login", deps.Auth.PostLogin)
 
