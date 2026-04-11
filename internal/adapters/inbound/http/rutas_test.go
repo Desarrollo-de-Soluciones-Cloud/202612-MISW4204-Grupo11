@@ -19,18 +19,53 @@ type fakePinger struct {
 	err error
 }
 
+type fakeAssignmentRepoForRoutes struct{}
+
+func (fakeAssignmentRepoForRoutes) Create(_ context.Context, _ *domain.Assignment) error { return nil }
+func (fakeAssignmentRepoForRoutes) FindByID(_ context.Context, _ int64) (*domain.Assignment, error) {
+	return nil, domain.ErrVinculacionNoEncontrada
+}
+func (fakeAssignmentRepoForRoutes) FindBySpace(_ context.Context, _ int64) ([]domain.Assignment, error) {
+	return nil, nil
+}
+func (fakeAssignmentRepoForRoutes) FindByUser(_ context.Context, _ int64) ([]domain.Assignment, error) {
+	return nil, nil
+}
+func (fakeAssignmentRepoForRoutes) ExistsByUserSpaceRole(_ context.Context, _, _ int64, _ string) (bool, error) {
+	return false, nil
+}
+func (fakeAssignmentRepoForRoutes) FindActiveByUserAndRole(_ context.Context, _ int64, _ string) ([]domain.Assignment, error) {
+	return nil, nil
+}
+func (fakeAssignmentRepoForRoutes) FindByProfessorWithUser(_ context.Context, _ int64) ([]domain.AssignmentWithUser, error) {
+	return nil, nil
+}
+func (fakeAssignmentRepoForRoutes) Update(_ context.Context, _ *domain.Assignment) error { return nil }
+
 type fakeTaskRepo struct{}
 
 func (f fakeTaskRepo) Create(task *domain.Task) error {
 	return nil
 }
 
-func (f fakeTaskRepo) GetAll() ([]domain.Task, error) {
+func (f fakeTaskRepo) ListAll(ctx context.Context) ([]domain.Task, error) {
+	return []domain.Task{}, nil
+}
+
+func (f fakeTaskRepo) ListByUser(ctx context.Context, userID int64) ([]domain.Task, error) {
+	return []domain.Task{}, nil
+}
+
+func (f fakeTaskRepo) ListByProfessorID(ctx context.Context, professorID int64) ([]domain.Task, error) {
 	return []domain.Task{}, nil
 }
 
 func (f fakeTaskRepo) GetByID(id string) (*domain.Task, error) {
 	return nil, nil
+}
+
+func (f fakeTaskRepo) GetByIDForUser(ctx context.Context, id string, userID int64) (*domain.Task, error) {
+	return nil, domain.ErrTaskNotFound
 }
 
 func (f fakeTaskRepo) Update(task *domain.Task) error {
@@ -57,7 +92,7 @@ func TestNuevoMotor_HealthAndTaskRoutes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	readiness := &application.Readiness{DB: fakePinger{err: nil}}
-	handler := handlers.NewTaskHandler(apptasks.NewTaskService(fakeTaskRepo{}))
+	handler := handlers.NewTaskHandler(apptasks.NewTaskService(fakeTaskRepo{}, fakeAssignmentRepoForRoutes{}))
 
 	deps := Deps{
 		Readiness:   readiness,
@@ -65,6 +100,9 @@ func TestNuevoMotor_HealthAndTaskRoutes(t *testing.T) {
 		Auth:        &handlers.Auth{},
 		Users:       &handlers.Users{},
 		TaskHandler: handler,
+		AcadSpaces:  &handlers.AcademicSpaceHandler{},
+		Periods:     &handlers.AcademicPeriodHandler{},
+		Assignments: &handlers.AssignmentHandler{},
 	}
 	engine := NewEngine(deps)
 
@@ -111,13 +149,16 @@ func TestNuevoMotor_HealthReadyUnavailable(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	readiness := &application.Readiness{DB: fakePinger{err: errTestPing}}
-	handler := handlers.NewTaskHandler(apptasks.NewTaskService(nil))
+	handler := handlers.NewTaskHandler(apptasks.NewTaskService(nil, fakeAssignmentRepoForRoutes{}))
 	deps := Deps{
 		Readiness:   readiness,
 		JWTSecret:   []byte("test-secret"),
 		Auth:        &handlers.Auth{},
 		Users:       &handlers.Users{},
 		TaskHandler: handler,
+		AcadSpaces:  &handlers.AcademicSpaceHandler{},
+		Periods:     &handlers.AcademicPeriodHandler{},
+		Assignments: &handlers.AssignmentHandler{},
 	}
 	engine := NewEngine(deps)
 

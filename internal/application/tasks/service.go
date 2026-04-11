@@ -1,6 +1,8 @@
 package tasks
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -15,7 +17,8 @@ import (
 )
 
 type TaskService struct {
-	repo ports.TaskRepository
+	repo        ports.TaskRepository
+	assignments domain.AssignmentRepository
 }
 
 type UpdateTaskInput struct {
@@ -27,11 +30,11 @@ type UpdateTaskInput struct {
 	Observations *string
 }
 
-func NewTaskService(repo ports.TaskRepository) *TaskService {
-	return &TaskService{repo: repo}
+func NewTaskService(repo ports.TaskRepository, assignments domain.AssignmentRepository) *TaskService {
+	return &TaskService{repo: repo, assignments: assignments}
 }
 
-func (s *TaskService) Create(task *domain.Task) error {
+func (s *TaskService) Create(ctx context.Context, task *domain.Task, currentUserID int64) error {
 	if strings.TrimSpace(task.Title) == "" {
 		return fmt.Errorf("title is required")
 	}
@@ -52,6 +55,18 @@ func (s *TaskService) Create(task *domain.Task) error {
 		return fmt.Errorf("time invested must be greater than 0")
 	}
 
+	if task.AssignmentId <= 0 {
+		return fmt.Errorf("assignment_id is required")
+	}
+
+	assignment, err := s.assignments.FindByID(ctx, int64(task.AssignmentId))
+	if err != nil {
+		return err
+	}
+	if assignment.UserID != currentUserID {
+		return domain.ErrAssignmentNotOwned
+	}
+
 	//PARA REVISAR, POR QUE ES LA SUMA DE TODAS LAS TAREAS.
 	if task.TimeInvested > 22 {
 		return fmt.Errorf("no se pueden registrar más de 22 horas en una sola tarea")
@@ -64,16 +79,24 @@ func (s *TaskService) Create(task *domain.Task) error {
 	return s.repo.Create(task)
 }
 
-func (s *TaskService) GetAll() ([]domain.Task, error) {
-	return s.repo.GetAll()
+func (s *TaskService) ListForUser(ctx context.Context, userID int64) ([]domain.Task, error) {
+	return s.repo.ListByUser(ctx, userID)
 }
 
-func (s *TaskService) GetByID(id string) (*domain.Task, error) {
-	return s.repo.GetByID(id)
+func (s *TaskService) ListForProfessor(ctx context.Context, professorID int64) ([]domain.Task, error) {
+	return s.repo.ListByProfessorID(ctx, professorID)
 }
 
-func (s *TaskService) Delete(taskID string) error {
-	task, err := s.repo.GetByID(taskID)
+func (s *TaskService) ListAllForAdmin(ctx context.Context) ([]domain.Task, error) {
+	return s.repo.ListAll(ctx)
+}
+
+func (s *TaskService) GetByIDForUser(ctx context.Context, id string, userID int64) (*domain.Task, error) {
+	return s.repo.GetByIDForUser(ctx, id, userID)
+}
+
+func (s *TaskService) Delete(ctx context.Context, taskID string, userID int64) error {
+	task, err := s.repo.GetByIDForUser(ctx, taskID, userID)
 	if err != nil {
 		return err
 	}
@@ -85,12 +108,12 @@ func (s *TaskService) Delete(taskID string) error {
 	return s.repo.Delete(taskID)
 }
 
-func (s *TaskService) Update(task *domain.Task) error {
+func (s *TaskService) Update(ctx context.Context, task *domain.Task, userID int64) error {
 	if task.ID <= 0 {
 		return fmt.Errorf("invalid task id")
 	}
 
-	existingTask, err := s.repo.GetByID(strconv.Itoa(task.ID))
+	existingTask, err := s.repo.GetByIDForUser(ctx, strconv.Itoa(task.ID), userID)
 	if err != nil {
 		return err
 	}
@@ -128,8 +151,8 @@ func (s *TaskService) Update(task *domain.Task) error {
 	return s.repo.Update(task)
 }
 
-func (s *TaskService) PartialUpdate(id string, input UpdateTaskInput) (*domain.Task, error) {
-	task, err := s.repo.GetByID(id)
+func (s *TaskService) PartialUpdate(ctx context.Context, id string, userID int64, input UpdateTaskInput) (*domain.Task, error) {
+	task, err := s.repo.GetByIDForUser(ctx, id, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -183,12 +206,12 @@ func (s *TaskService) PartialUpdate(id string, input UpdateTaskInput) (*domain.T
 	return task, nil
 }
 
-func (s *TaskService) UpdateStatus(task *domain.Task) error {
+func (s *TaskService) UpdateStatus(ctx context.Context, task *domain.Task, userID int64) error {
 	if task.ID <= 0 {
 		return fmt.Errorf("invalid task id")
 	}
 
-	existingTask, err := s.repo.GetByID(strconv.Itoa(task.ID))
+	existingTask, err := s.repo.GetByIDForUser(ctx, strconv.Itoa(task.ID), userID)
 	if err != nil {
 		return err
 	}
@@ -206,10 +229,13 @@ func (s *TaskService) UpdateStatus(task *domain.Task) error {
 	return s.repo.UpdateStatus(existingTask)
 }
 
-func (s *TaskService) UploadAttachment(taskID string, file *multipart.FileHeader) (*domain.Attachment, error) {
-	_, err := s.repo.GetByID(taskID)
+func (s *TaskService) UploadAttachment(ctx context.Context, taskID string, userID int64, file *multipart.FileHeader) (*domain.Attachment, error) {
+	_, err := s.repo.GetByIDForUser(ctx, taskID, userID)
 	if err != nil {
-		return nil, fmt.Errorf("task not found")
+		if errors.Is(err, domain.ErrTaskNotFound) {
+			return nil, fmt.Errorf("task not found")
+		}
+		return nil, err
 	}
 
 	taskIDInt, err := strconv.Atoi(taskID)

@@ -67,6 +67,7 @@ func NewEngine(deps Deps) *gin.Engine {
 	professors.Use(middleware.Autenticar(deps.JWTSecret))
 	professors.Use(middleware.ExigeRol(domain.RolProfesor))
 	professors.GET("/me/assignments", deps.Assignments.ListByProfessor)
+	professors.GET("/me/tasks", deps.TaskHandler.ListForProfessor)
 
 	periods := apiV1.Group("/periods")
 	periods.Use(middleware.Autenticar(deps.JWTSecret))
@@ -92,9 +93,15 @@ func NewEngine(deps Deps) *gin.Engine {
 			attachmentRoutes.POST("", deps.TaskHandler.UploadAttachment)
 		}
 	}
-	assignments := apiV1.Group("/assignments")
-	assignments.Use(middleware.Autenticar(deps.JWTSecret))
-	assignments.GET("/me", deps.Assignments.ListMyAssignments)
+	assignmentsMine := apiV1.Group("/assignments")
+	assignmentsMine.Use(middleware.Autenticar(deps.JWTSecret))
+	assignmentsMine.Use(middleware.ExigeRol(domain.RolMonitor, domain.RolAsistenteGraduado))
+	assignmentsMine.GET("/me", deps.Assignments.ListMyAssignments)
+
+	adminTasks := apiV1.Group("/admin/tasks")
+	adminTasks.Use(middleware.Autenticar(deps.JWTSecret))
+	adminTasks.Use(middleware.ExigeRol(domain.RolAdministrador))
+	adminTasks.GET("", deps.TaskHandler.AdminList)
 
 	adminAssignments := apiV1.Group("/admin/assignments")
 	adminAssignments.Use(middleware.Autenticar(deps.JWTSecret))

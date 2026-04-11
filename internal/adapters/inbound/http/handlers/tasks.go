@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -18,6 +19,12 @@ func NewTaskHandler(service *apptasks.TaskService) *TaskHandler {
 }
 
 func (h *TaskHandler) Create(c *gin.Context) {
+	userID, ok := professorIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": errNoAuth})
+		return
+	}
+
 	var task domain.Task
 
 	if err := c.ShouldBindJSON(&task); err != nil {
@@ -25,8 +32,8 @@ func (h *TaskHandler) Create(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.Create(&task); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := h.service.Create(c.Request.Context(), &task, userID); err != nil {
+		taskMutateError(c, err)
 		return
 	}
 
@@ -34,7 +41,39 @@ func (h *TaskHandler) Create(c *gin.Context) {
 }
 
 func (h *TaskHandler) GetAll(c *gin.Context) {
-	tasks, err := h.service.GetAll()
+	userID, ok := professorIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": errNoAuth})
+		return
+	}
+
+	tasks, err := h.service.ListForUser(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, tasks)
+}
+
+func (h *TaskHandler) ListForProfessor(c *gin.Context) {
+	professorID, ok := professorIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": errNoAuth})
+		return
+	}
+
+	tasks, err := h.service.ListForProfessor(c.Request.Context(), professorID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, tasks)
+}
+
+func (h *TaskHandler) AdminList(c *gin.Context) {
+	tasks, err := h.service.ListAllForAdmin(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -44,11 +83,17 @@ func (h *TaskHandler) GetAll(c *gin.Context) {
 }
 
 func (h *TaskHandler) GetByID(c *gin.Context) {
+	userID, ok := professorIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": errNoAuth})
+		return
+	}
+
 	taskID := c.Param("id")
 
-	task, err := h.service.GetByID(taskID)
+	task, err := h.service.GetByIDForUser(c.Request.Context(), taskID, userID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		taskReadError(c, err)
 		return
 	}
 
@@ -56,6 +101,12 @@ func (h *TaskHandler) GetByID(c *gin.Context) {
 }
 
 func (h *TaskHandler) Update(c *gin.Context) {
+	userID, ok := professorIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": errNoAuth})
+		return
+	}
+
 	taskIDStr := c.Param("id")
 
 	var task domain.Task
@@ -72,8 +123,8 @@ func (h *TaskHandler) Update(c *gin.Context) {
 
 	task.ID = taskID
 
-	if err := h.service.Update(&task); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := h.service.Update(c.Request.Context(), &task, userID); err != nil {
+		taskMutateError(c, err)
 		return
 	}
 
@@ -83,6 +134,12 @@ func (h *TaskHandler) Update(c *gin.Context) {
 }
 
 func (h *TaskHandler) UpdateField(c *gin.Context) {
+	userID, ok := professorIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": errNoAuth})
+		return
+	}
+
 	taskID := c.Param("id")
 
 	var input apptasks.UpdateTaskInput
@@ -91,9 +148,9 @@ func (h *TaskHandler) UpdateField(c *gin.Context) {
 		return
 	}
 
-	task, err := h.service.PartialUpdate(taskID, input)
+	task, err := h.service.PartialUpdate(c.Request.Context(), taskID, userID, input)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		taskMutateError(c, err)
 		return
 	}
 
@@ -101,6 +158,12 @@ func (h *TaskHandler) UpdateField(c *gin.Context) {
 }
 
 func (h *TaskHandler) UpdateStatus(c *gin.Context) {
+	userID, ok := professorIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": errNoAuth})
+		return
+	}
+
 	taskIDStr := c.Param("id")
 
 	var payload struct {
@@ -123,8 +186,8 @@ func (h *TaskHandler) UpdateStatus(c *gin.Context) {
 		Status: payload.Status,
 	}
 
-	if err := h.service.UpdateStatus(&task); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := h.service.UpdateStatus(c.Request.Context(), &task, userID); err != nil {
+		taskMutateError(c, err)
 		return
 	}
 
@@ -134,10 +197,16 @@ func (h *TaskHandler) UpdateStatus(c *gin.Context) {
 }
 
 func (h *TaskHandler) Delete(c *gin.Context) {
+	userID, ok := professorIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": errNoAuth})
+		return
+	}
+
 	taskID := c.Param("id")
 
-	if err := h.service.Delete(taskID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := h.service.Delete(c.Request.Context(), taskID, userID); err != nil {
+		taskMutateError(c, err)
 		return
 	}
 
@@ -147,6 +216,12 @@ func (h *TaskHandler) Delete(c *gin.Context) {
 }
 
 func (h *TaskHandler) UploadAttachment(c *gin.Context) {
+	userID, ok := professorIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": errNoAuth})
+		return
+	}
+
 	taskID := c.Param("id")
 
 	file, err := c.FormFile("file")
@@ -155,11 +230,34 @@ func (h *TaskHandler) UploadAttachment(c *gin.Context) {
 		return
 	}
 
-	attachment, err := h.service.UploadAttachment(taskID, file)
+	attachment, err := h.service.UploadAttachment(c.Request.Context(), taskID, userID, file)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusCreated, attachment)
+}
+
+func taskReadError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, domain.ErrTaskNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	}
+}
+
+func taskMutateError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, domain.ErrTaskNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+	case errors.Is(err, domain.ErrAssignmentNotOwned),
+		errors.Is(err, domain.ErrTaskForbidden):
+		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+	case errors.Is(err, domain.ErrVinculacionNoEncontrada):
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	}
 }

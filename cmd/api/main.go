@@ -59,7 +59,7 @@ func main() {
 	readiness := &application.Readiness{DB: pool}
 
 	taskRepo := postgres.NewTaskRepository(db)
-	taskService := apptasks.NewTaskService(taskRepo)
+	taskService := apptasks.NewTaskService(taskRepo, assignmentRepo)
 	taskHandler := handlers.NewTaskHandler(taskService)
 
 	engine := httpadapter.NewEngine(httpadapter.Deps{
