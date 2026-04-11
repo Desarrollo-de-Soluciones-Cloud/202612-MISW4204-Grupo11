@@ -90,18 +90,6 @@ func TestNuevoMotor_HealthAndTaskRoutes(t *testing.T) {
 				t.Fatalf("expected status %d, got %d", tt.code, rr.Code)
 			}
 
-			/*if tt.expected != "[]" {
-				var payload map[string]string
-				if err := json.NewDecoder(rr.Body).Decode(&payload); err != nil {
-					t.Fatalf("failed to decode body: %v", err)
-				}
-				if payload["status"] != tt.expected {
-					t.Fatalf("expected status %q, got %q", tt.expected, payload["status"])
-				}
-			} else if rr.Body.String() != tt.expected {
-				t.Fatalf("expected empty list %q, got %q", tt.expected, rr.Body.String())
-			}*/
-
 			if tt.expected == "ok" || tt.expected == "ready" {
 				var payload map[string]string
 				if err := json.NewDecoder(rr.Body).Decode(&payload); err != nil {
