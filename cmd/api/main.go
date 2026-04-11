@@ -45,13 +45,16 @@ func main() {
 	loginSvc := &auth.LoginService{Users: userRepo, Secret: jwtSecret}
 	adminSvc := &appusers.AdminService{Users: userRepo}
 
-	// RF-03 repositorios y servicio
 	periodRepo := postgres.NewAcademicPeriodRepo(pool)
 	spaceRepo := postgres.NewAcademicSpaceRepo(pool)
 	spaceSvc := appspaces.NewAcademicSpaceService(spaceRepo, periodRepo)
 	spaceHandler := handlers.NewAcademicSpaceHandler(spaceSvc)
 	periodSvc := appspaces.NewAcademicPeriodService(periodRepo)
 	periodHandler := handlers.NewAcademicPeriodHandler(periodSvc)
+
+	assignmentRepo := postgres.NewAssignmentRepo(pool)
+	assignmentSvc := appspaces.NewAssignmentService(assignmentRepo, spaceRepo, periodRepo, appspaces.NoOpHourRuleChecker{})
+	assignmentHandler := handlers.NewAssignmentHandler(assignmentSvc)
 
 	readiness := &application.Readiness{DB: pool}
 
@@ -67,6 +70,7 @@ func main() {
 		TaskHandler: taskHandler,
 		AcadSpaces:  spaceHandler,
 		Periods:     periodHandler,
+		Assignments: assignmentHandler,
 	})
 
 	log.Printf("listening %s", cfg.HTTPAddr)
