@@ -23,6 +23,7 @@ type createAssignmentRequest struct {
 	ContractedHoursPerWeek int    `json:"contracted_hours_per_week" binding:"required,min=1"`
 }
 
+
 func (handler *AssignmentHandler) Create(c *gin.Context) {
 	professorID, ok := professorIDFromContext(c)
 	if !ok {
@@ -56,7 +57,6 @@ func (handler *AssignmentHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, assignment)
 }
 
-
 func (handler *AssignmentHandler) ListBySpace(c *gin.Context) {
 	professorID, ok := professorIDFromContext(c)
 	if !ok {
@@ -78,8 +78,7 @@ func (handler *AssignmentHandler) ListBySpace(c *gin.Context) {
 	c.JSON(http.StatusOK, assignments)
 }
 
-
-func (handler *AssignmentHandler) ListMine(c *gin.Context) {
+func (handler *AssignmentHandler) ListMyAssignments(c *gin.Context) {
 	userID, ok := professorIDFromContext(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": errNoAuth})
@@ -93,7 +92,6 @@ func (handler *AssignmentHandler) ListMine(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, assignments)
 }
-
 
 func (handler *AssignmentHandler) Get(c *gin.Context) {
 	professorID, ok := professorIDFromContext(c)
@@ -126,13 +124,14 @@ func assignmentError(c *gin.Context, err error) {
 	case errors.Is(err, domain.ErrUsuarioYaVinculado),
 		errors.Is(err, domain.ErrRolInvalido),
 		errors.Is(err, domain.ErrHorasContratadas),
-		errors.Is(err, domain.ErrEspacioCerradoVinculacion):
+		errors.Is(err, domain.ErrEspacioCerradoVinculacion),
+		errors.Is(err, domain.ErrPeriodoCerradoVinculacion),
+		errors.Is(err, domain.ErrFechasEspacioFueraDelPeriodo):
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 	}
 }
-
 
 func (handler *AssignmentHandler) ListByProfessor(c *gin.Context) {
 	professorID, ok := professorIDFromContext(c)
@@ -147,4 +146,33 @@ func (handler *AssignmentHandler) ListByProfessor(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, assignments)
+}
+
+type updateAssignmentRequest struct {
+	RoleInAssignment       string `json:"role_in_assignment"        binding:"required,oneof=monitor graduate_assistant"`
+	ContractedHoursPerWeek int    `json:"contracted_hours_per_week" binding:"required,min=1"`
+}
+
+func (handler *AssignmentHandler) UpdateByAdmin(c *gin.Context) {
+	assignmentID, err := parseID(c, "assignmentID")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id de vinculación inválido"})
+		return
+	}
+
+	var req updateAssignmentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	assignment, err := handler.svc.UpdateAssignmentByAdmin(c.Request.Context(), assignmentID, appspaces.UpdateAssignmentInput{
+		RoleInAssignment:       req.RoleInAssignment,
+		ContractedHoursPerWeek: req.ContractedHoursPerWeek,
+	})
+	if err != nil {
+		assignmentError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, assignment)
 }

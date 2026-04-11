@@ -134,3 +134,28 @@ func (service *AssignmentService) ListAssignmentsByUser(ctx context.Context, use
 func (service *AssignmentService) ListAssignmentsByProfessor(ctx context.Context, professorID int64) ([]domain.AssignmentWithUser, error) {
 	return service.assignmentRepo.FindByProfessorWithUser(ctx, professorID)
 }
+
+type UpdateAssignmentInput struct {
+	RoleInAssignment       string
+	ContractedHoursPerWeek int
+}
+
+func (service *AssignmentService) UpdateAssignmentByAdmin(ctx context.Context, assignmentID int64, input UpdateAssignmentInput) (*domain.Assignment, error) {
+	assignment, err := service.assignmentRepo.FindByID(ctx, assignmentID)
+	if err != nil {
+		return nil, err
+	}
+
+	assignment.RoleInAssignment = input.RoleInAssignment
+	assignment.ContractedHoursPerWeek = input.ContractedHoursPerWeek
+
+	if err := assignment.Validate(); err != nil {
+		return nil, err
+	}
+
+	if err := service.assignmentRepo.Update(ctx, assignment); err != nil {
+		return nil, err
+	}
+
+	return assignment, nil
+}

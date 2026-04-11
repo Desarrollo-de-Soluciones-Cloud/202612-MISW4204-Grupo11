@@ -18,7 +18,7 @@ type Deps struct {
 	TaskHandler *handlers.TaskHandler
 	AcadSpaces  *handlers.AcademicSpaceHandler
 	Periods     *handlers.AcademicPeriodHandler
-	Assignments  *handlers.AssignmentHandler
+	Assignments *handlers.AssignmentHandler
 }
 
 func NewEngine(deps Deps) *gin.Engine {
@@ -63,7 +63,6 @@ func NewEngine(deps Deps) *gin.Engine {
 
 	}
 
-
 	professors := apiV1.Group("/professors")
 	professors.Use(middleware.Autenticar(deps.JWTSecret))
 	professors.Use(middleware.ExigeRol(domain.RolProfesor))
@@ -95,7 +94,14 @@ func NewEngine(deps Deps) *gin.Engine {
 	}
 	assignments := apiV1.Group("/assignments")
 	assignments.Use(middleware.Autenticar(deps.JWTSecret))
-	assignments.GET("/me", deps.Assignments.ListMine)
+	assignments.GET("/me", deps.Assignments.ListMyAssignments)
+
+	adminAssignments := apiV1.Group("/admin/assignments")
+	adminAssignments.Use(middleware.Autenticar(deps.JWTSecret))
+	adminAssignments.Use(middleware.ExigeRol(domain.RolAdministrador))
+	{
+		adminAssignments.PATCH("/:assignmentID", deps.Assignments.UpdateByAdmin)
+	}
 
 	return router
 }

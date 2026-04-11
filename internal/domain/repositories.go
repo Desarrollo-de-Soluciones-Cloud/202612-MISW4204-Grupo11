@@ -24,5 +24,6 @@ type AssignmentRepository interface {
 	ExistsByUserSpaceRole(ctx context.Context, userID, spaceID int64, role string) (bool, error)
 	FindActiveByUserAndRole(ctx context.Context, userID int64, role string) ([]Assignment, error)
 	FindByProfessorWithUser(ctx context.Context, professorID int64) ([]AssignmentWithUser, error)
+	Update(ctx context.Context, assignment *Assignment) error
 }
 

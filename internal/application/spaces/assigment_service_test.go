@@ -138,6 +138,10 @@ func newAssignmentSvc(spaceRepo domain.AcademicSpaceRepository, assignRepo domai
 	return appspaces.NewAssignmentService(assignRepo, spaceRepo, &stubPeriodRepo{period: activePeriod()}, appspaces.NoOpHourRuleChecker{})
 }
 
+func (stub *stubAssignmentRepo) Update(_ context.Context, assignment *domain.Assignment) error {
+	return stub.err
+}
+
 func TestCreateAssignmentOK(t *testing.T) {
 	svc := newAssignmentSvc(
 		&stubSpaceRepo{space: activeSpace()},

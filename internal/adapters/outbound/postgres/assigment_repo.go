@@ -166,3 +166,22 @@ func (assignmentRepo *AssignmentRepo) FindByProfessorWithUser(ctx context.Contex
 	}
 	return results, rows.Err()
 }
+
+func (assignmentRepo *AssignmentRepo) Update(ctx context.Context, assignment *domain.Assignment) error {
+	const query = `
+		UPDATE assignments
+		SET role_in_assignment = $1, contracted_hours_per_week = $2, updated_at = NOW()
+		WHERE id = $3
+		RETURNING id, created_at, updated_at`
+
+	row := assignmentRepo.pool.inner.QueryRow(ctx, query,
+		assignment.RoleInAssignment, assignment.ContractedHoursPerWeek, assignment.ID,
+	)
+	if err := row.Scan(&assignment.ID, &assignment.CreatedAt, &assignment.UpdatedAt); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.ErrVinculacionNoEncontrada
+		}
+		return fmt.Errorf("assignment Update: %w", err)
+	}
+	return nil
+}
