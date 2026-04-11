@@ -12,12 +12,13 @@ import (
 
 // Deps wires HTTP routes to application services and middleware.
 type Deps struct {
-	Readiness  *application.Readiness
-	JWTSecret  []byte
-	Auth       *handlers.Auth
-	Users      *handlers.Users
-	AcadSpaces *handlers.AcademicSpaceHandler
-	Periods    *handlers.AcademicPeriodHandler
+	Readiness   *application.Readiness
+	JWTSecret   []byte
+	Auth        *handlers.Auth
+	Users       *handlers.Users
+	TaskHandler *handlers.TaskHandler
+	AcadSpaces  *handlers.AcademicSpaceHandler
+	Periods     *handlers.AcademicPeriodHandler
 }
 
 // NewEngine builds the Gin engine with health, auth, user, and academic space routes.
@@ -42,7 +43,6 @@ func NewEngine(deps Deps) *gin.Engine {
 	apiV1 := router.Group("/api/v1")
 	apiV1.POST("/auth/login", deps.Auth.PostLogin)
 
-	// First user: POST without token (body must include administrador). Later: admin JWT only.
 	apiV1.POST("/users", deps.Users.Post)
 
 	adminUsers := apiV1.Group("/users")
@@ -55,10 +55,10 @@ func NewEngine(deps Deps) *gin.Engine {
 	spaces.Use(middleware.Autenticar(deps.JWTSecret))
 	spaces.Use(middleware.ExigeRol(domain.RolProfesor))
 	{
-		spaces.POST("", deps.AcadSpaces.Create)           
-		spaces.GET("", deps.AcadSpaces.List)              
-		spaces.GET("/:id", deps.AcadSpaces.Get)           
-		spaces.PATCH("/:id/close", deps.AcadSpaces.Close) 
+		spaces.POST("", deps.AcadSpaces.Create)
+		spaces.GET("", deps.AcadSpaces.List)
+		spaces.GET("/:id", deps.AcadSpaces.Get)
+		spaces.PATCH("/:id/close", deps.AcadSpaces.Close)
 	}
 
 	periods := apiV1.Group("/periods")
@@ -68,6 +68,22 @@ func NewEngine(deps Deps) *gin.Engine {
 		periods.POST("", deps.Periods.Create)
 		periods.GET("", deps.Periods.List)
 		periods.PATCH("/:id/close", deps.Periods.Close)
+	}
+
+	tasks := apiV1.Group("/tasks")
+	tasks.Use(middleware.Autenticar(deps.JWTSecret))
+	tasks.Use(middleware.ExigeRol(domain.RolAsistenteGraduado, domain.RolMonitor))
+	{
+		tasks.POST("", deps.TaskHandler.Create)
+		tasks.GET("", deps.TaskHandler.GetAll)
+		tasks.PATCH("/:id", deps.TaskHandler.UpdateField)
+		tasks.PUT("/:id", deps.TaskHandler.Update)
+		tasks.DELETE("/:id", deps.TaskHandler.Delete)
+
+		attachmentRoutes := tasks.Group("/:id/attachments")
+		{
+			attachmentRoutes.POST("", deps.TaskHandler.UploadAttachment)
+		}
 	}
 
 	return router

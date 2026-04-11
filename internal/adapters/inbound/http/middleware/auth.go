@@ -36,24 +36,29 @@ func Autenticar(jwtSecret []byte) gin.HandlerFunc {
 }
 
 // ExigeRol exige un rol global (ej. domain.RolAdministrador) después de Autenticar.
-func ExigeRol(nombre string) gin.HandlerFunc {
+func ExigeRol(nombres ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		raw, ok := c.Get(ctxRoles)
 		if !ok {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "sin permiso"})
 			return
 		}
+
 		roles, ok := raw.([]string)
 		if !ok {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "sin permiso"})
 			return
 		}
-		for _, r := range roles {
-			if r == nombre {
-				c.Next()
-				return
+
+		for _, userRole := range roles {
+			for _, permitido := range nombres {
+				if userRole == permitido {
+					c.Next()
+					return
+				}
 			}
 		}
+
 		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "sin permiso para esta acción"})
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/auth"
 	appspaces "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/spaces"
+	apptasks "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/tasks"
 	appusers "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/users"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/config"
 )
@@ -53,11 +54,17 @@ func main() {
 	periodHandler := handlers.NewAcademicPeriodHandler(periodSvc)
 
 	readiness := &application.Readiness{DB: pool}
+
+	taskRepo := postgres.NewTaskRepository(db)
+	taskService := apptasks.NewTaskService(taskRepo)
+	taskHandler := handlers.NewTaskHandler(taskService)
+
 	engine := httpadapter.NewEngine(httpadapter.Deps{
 		Readiness:   readiness,
 		JWTSecret:   jwtSecret,
 		Auth:        &handlers.Auth{Login: loginSvc},
 		Users:       &handlers.Users{Admin: adminSvc, JWTSecret: jwtSecret},
+		TaskHandler: taskHandler,
 		AcadSpaces:  spaceHandler,
 		Periods:     periodHandler,
 	})
@@ -67,4 +74,5 @@ func main() {
 	if err := engine.Run(cfg.HTTPAddr); err != nil {
 		log.Fatalf("http: %v", err)
 	}
+
 }
