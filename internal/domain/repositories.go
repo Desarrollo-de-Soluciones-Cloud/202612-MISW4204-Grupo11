@@ -16,3 +16,13 @@ type AcademicSpaceRepository interface {
 	UpdateStatus(ctx context.Context, id int64, status string) error
 }
 
+type AssignmentRepository interface {
+	Create(ctx context.Context, assignment *Assignment) error
+	FindByID(ctx context.Context, id int64) (*Assignment, error)
+	FindBySpace(ctx context.Context, spaceID int64) ([]Assignment, error)
+	FindByUser(ctx context.Context, userID int64) ([]Assignment, error)
+	ExistsByUserSpaceRole(ctx context.Context, userID, spaceID int64, role string) (bool, error)
+	FindActiveByUserAndRole(ctx context.Context, userID int64, role string) ([]Assignment, error)
+	FindByProfessorWithUser(ctx context.Context, professorID int64) ([]AssignmentWithUser, error)
+}
+

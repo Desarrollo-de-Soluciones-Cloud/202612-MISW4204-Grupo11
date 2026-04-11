@@ -10,7 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Deps wires HTTP routes to application services and middleware.
 type Deps struct {
 	Readiness   *application.Readiness
 	JWTSecret   []byte
@@ -19,9 +18,9 @@ type Deps struct {
 	TaskHandler *handlers.TaskHandler
 	AcadSpaces  *handlers.AcademicSpaceHandler
 	Periods     *handlers.AcademicPeriodHandler
+	Assignments  *handlers.AssignmentHandler
 }
 
-// NewEngine builds the Gin engine with health, auth, user, and academic space routes.
 func NewEngine(deps Deps) *gin.Engine {
 	router := gin.Default()
 
@@ -42,7 +41,6 @@ func NewEngine(deps Deps) *gin.Engine {
 
 	apiV1 := router.Group("/api/v1")
 	apiV1.POST("/auth/login", deps.Auth.PostLogin)
-
 	apiV1.POST("/users", deps.Users.Post)
 
 	adminUsers := apiV1.Group("/users")
@@ -50,7 +48,6 @@ func NewEngine(deps Deps) *gin.Engine {
 	adminUsers.Use(middleware.ExigeRol(domain.RolAdministrador))
 	adminUsers.GET("", deps.Users.GetList)
 
-	// RF-03: Gestión de cursos y proyectos
 	spaces := apiV1.Group("/spaces")
 	spaces.Use(middleware.Autenticar(deps.JWTSecret))
 	spaces.Use(middleware.ExigeRol(domain.RolProfesor))
@@ -59,7 +56,18 @@ func NewEngine(deps Deps) *gin.Engine {
 		spaces.GET("", deps.AcadSpaces.List)
 		spaces.GET("/:id", deps.AcadSpaces.Get)
 		spaces.PATCH("/:id/close", deps.AcadSpaces.Close)
+
+		spaces.POST("/:id/assignments", deps.Assignments.Create)
+		spaces.GET("/:id/assignments", deps.Assignments.ListBySpace)
+		spaces.GET("/:id/assignments/:assignmentID", deps.Assignments.Get)
+
 	}
+
+
+	professors := apiV1.Group("/professors")
+	professors.Use(middleware.Autenticar(deps.JWTSecret))
+	professors.Use(middleware.ExigeRol(domain.RolProfesor))
+	professors.GET("/me/assignments", deps.Assignments.ListByProfessor)
 
 	periods := apiV1.Group("/periods")
 	periods.Use(middleware.Autenticar(deps.JWTSecret))
@@ -85,6 +93,9 @@ func NewEngine(deps Deps) *gin.Engine {
 			attachmentRoutes.POST("", deps.TaskHandler.UploadAttachment)
 		}
 	}
+	assignments := apiV1.Group("/assignments")
+	assignments.Use(middleware.Autenticar(deps.JWTSecret))
+	assignments.GET("/me", deps.Assignments.ListMine)
 
 	return router
 }

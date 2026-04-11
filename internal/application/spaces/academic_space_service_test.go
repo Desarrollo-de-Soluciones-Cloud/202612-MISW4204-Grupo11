@@ -10,56 +10,8 @@ import (
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/domain"
 )
 
-type stubPeriodRepo struct {
-	period  *domain.AcademicPeriod
-	periods []domain.AcademicPeriod
-	err     error
-}
 
-func (s *stubPeriodRepo) FindByID(_ context.Context, _ int64) (*domain.AcademicPeriod, error) {
-	return s.period, s.err
-}
-func (s *stubPeriodRepo) Create(_ context.Context, p *domain.AcademicPeriod) error {
-	p.ID = 1
-	return s.err
-}
-func (s *stubPeriodRepo) List(_ context.Context) ([]domain.AcademicPeriod, error) {
-	return s.periods, s.err
-}
-func (s *stubPeriodRepo) UpdateStatus(_ context.Context, _ int64, _ string) error {
-	return s.err
-}
 
-type stubSpaceRepo struct {
-	space  *domain.AcademicSpace
-	spaces []domain.AcademicSpace
-	err    error
-}
-
-func (spaceStub *stubSpaceRepo) Create(_ context.Context, space *domain.AcademicSpace) error {
-	space.ID = 1
-	space.CreatedAt = time.Now()
-	space.UpdatedAt = time.Now()
-	return spaceStub.err
-}
-func (spaceStub *stubSpaceRepo) FindByID(_ context.Context, _ int64) (*domain.AcademicSpace, error) {
-	return spaceStub.space, spaceStub.err
-}
-func (spaceStub *stubSpaceRepo) FindByProfessor(_ context.Context, _ int64) ([]domain.AcademicSpace, error) {
-	return spaceStub.spaces, spaceStub.err
-}
-func (spaceStub *stubSpaceRepo) UpdateStatus(_ context.Context, _ int64, _ string) error {
-	return spaceStub.err
-}
-
-// HELPERS
-func activePeriod() *domain.AcademicPeriod {
-	return &domain.AcademicPeriod{ID: 1, Code: "2026-10", Status: "active"}
-}
-
-func closedPeriod() *domain.AcademicPeriod {
-	return &domain.AcademicPeriod{ID: 2, Code: "2026-10", Status: "closed"}
-}
 
 func validSpaceInput(periodID, profID int64) spaces.CreateSpaceInput {
 	return spaces.CreateSpaceInput{
@@ -69,6 +21,16 @@ func validSpaceInput(periodID, profID int64) spaces.CreateSpaceInput {
 		ProfessorID:      profID,
 		StartDate:        time.Now(),
 		EndDate:          time.Now().Add(90 * 24 * time.Hour),
+	}
+}
+
+func closedPeriod() *domain.AcademicPeriod {
+	return &domain.AcademicPeriod{
+		ID:        2,
+		Code:      "2026-10",
+		Status:    "closed",
+		StartDate: time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC),
+		EndDate:   time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC),
 	}
 }
 
