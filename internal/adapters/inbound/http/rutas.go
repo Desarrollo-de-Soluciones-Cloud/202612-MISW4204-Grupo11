@@ -40,7 +40,7 @@ func NewEngine(deps Deps) *gin.Engine {
 		ginCtx.JSON(http.StatusOK, gin.H{"status": "ready"})
 	})
 
-	taskRoutes := router.Group("/tasks")
+	/*taskRoutes := router.Group("/tasks")
 	{
 		taskRoutes.POST("", deps.TaskHandler.Create)
 		taskRoutes.GET("", deps.TaskHandler.GetAll)
@@ -52,7 +52,7 @@ func NewEngine(deps Deps) *gin.Engine {
 		{
 			attachmentRoutes.POST("", deps.TaskHandler.UploadAttachment)
 		}
-	}
+	}*/
 
 	apiV1 := router.Group("/api/v1")
 	apiV1.POST("/auth/login", deps.Auth.PostLogin)
@@ -82,6 +82,22 @@ func NewEngine(deps Deps) *gin.Engine {
 		periods.POST("", deps.Periods.Create)
 		periods.GET("", deps.Periods.List)
 		periods.PATCH("/:id/close", deps.Periods.Close)
+	}
+
+	tasks := apiV1.Group("/tasks")
+	tasks.Use(middleware.Autenticar(deps.JWTSecret))
+	tasks.Use(middleware.ExigeRol(domain.RolAsistenteGraduado, domain.RolMonitor))
+	{
+		tasks.POST("", deps.TaskHandler.Create)
+		tasks.GET("", deps.TaskHandler.GetAll)
+		tasks.PATCH("/:id", deps.TaskHandler.UpdateField)
+		tasks.PUT("/:id", deps.TaskHandler.Update)
+		tasks.DELETE("/:id", deps.TaskHandler.Delete)
+
+		attachmentRoutes := tasks.Group("/:id/attachments")
+		{
+			attachmentRoutes.POST("", deps.TaskHandler.UploadAttachment)
+		}
 	}
 
 	return router

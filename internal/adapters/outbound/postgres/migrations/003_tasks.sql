@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     status TEXT NOT NULL,
     week INT NOT NULL,
     time_invested INT NOT NULL,
+    assignment_id INT NOT NULL,
     time_registered TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     observations TEXT
 );

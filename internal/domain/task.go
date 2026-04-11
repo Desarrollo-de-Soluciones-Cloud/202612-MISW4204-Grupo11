@@ -17,6 +17,7 @@ type Task struct {
 	Status         Status
 	Week           int
 	TimeInvested   int
+	Assignment_id  int
 	TimeRegistered time.Time
 	Observations   string
 }

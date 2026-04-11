@@ -27,10 +27,11 @@ func (repository *taskRepository) Create(task *domain.Task) error {
 			status,
 			week,
 			time_invested,
+			assignment_id,
 			time_registered,
 			observations
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id;
 	`
 
@@ -42,6 +43,7 @@ func (repository *taskRepository) Create(task *domain.Task) error {
 		string(task.Status),
 		task.Week,
 		task.TimeInvested,
+		task.Assignment_id,
 		task.TimeRegistered,
 		task.Observations,
 	).Scan(&task.ID)
