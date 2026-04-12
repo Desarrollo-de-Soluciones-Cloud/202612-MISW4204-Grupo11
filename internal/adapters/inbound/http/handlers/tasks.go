@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	apptasks "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/tasks"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/domain"
@@ -18,6 +19,24 @@ func NewTaskHandler(service *apptasks.TaskService) *TaskHandler {
 	return &TaskHandler{service: service}
 }
 
+type createTaskRequest struct {
+	Title        string `json:"title"          binding:"required"`
+	Description  string `json:"description"    binding:"required"`
+	Status       string `json:"status"         binding:"required"`
+	WeekStart    string `json:"week_start"     binding:"required"`
+	TimeInvested int    `json:"time_invested"  binding:"required,min=1"`
+	AssignmentID int    `json:"assignment_id"  binding:"required"`
+	Observations string `json:"observations"`
+}
+
+type updateTaskRequest struct {
+	Title        string `json:"title"          binding:"required"`
+	Description  string `json:"description"    binding:"required"`
+	Status       string `json:"status"         binding:"required"`
+	TimeInvested int    `json:"time_invested"  binding:"required,min=1"`
+	Observations string `json:"observations"`
+}
+
 func (h *TaskHandler) Create(c *gin.Context) {
 	userID, ok := professorIDFromContext(c)
 	if !ok {
@@ -25,11 +44,26 @@ func (h *TaskHandler) Create(c *gin.Context) {
 		return
 	}
 
-	var task domain.Task
-
-	if err := c.ShouldBindJSON(&task); err != nil {
+	var req createTaskRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+
+	weekStart, err := time.Parse(time.DateOnly, req.WeekStart)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "week_start inválido, use YYYY-MM-DD"})
+		return
+	}
+
+	task := domain.Task{
+		Title:        req.Title,
+		Description:  req.Description,
+		Status:       domain.Status(req.Status),
+		WeekStart:    weekStart,
+		TimeInvested: req.TimeInvested,
+		AssignmentId: req.AssignmentID,
+		Observations: req.Observations,
 	}
 
 	if err := h.service.Create(c.Request.Context(), &task, userID); err != nil {
@@ -109,8 +143,8 @@ func (h *TaskHandler) Update(c *gin.Context) {
 
 	taskIDStr := c.Param("id")
 
-	var task domain.Task
-	if err := c.ShouldBindJSON(&task); err != nil {
+	var req updateTaskRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -121,7 +155,14 @@ func (h *TaskHandler) Update(c *gin.Context) {
 		return
 	}
 
-	task.ID = taskID
+	task := domain.Task{
+		ID:           taskID,
+		Title:        req.Title,
+		Description:  req.Description,
+		Status:       domain.Status(req.Status),
+		TimeInvested: req.TimeInvested,
+		Observations: req.Observations,
+	}
 
 	if err := h.service.Update(c.Request.Context(), &task, userID); err != nil {
 		taskMutateError(c, err)
@@ -255,8 +296,15 @@ func taskMutateError(c *gin.Context, err error) {
 	case errors.Is(err, domain.ErrAssignmentNotOwned),
 		errors.Is(err, domain.ErrTaskForbidden):
 		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-	case errors.Is(err, domain.ErrVinculacionNoEncontrada):
+	case errors.Is(err, domain.ErrSemanaInicioNoEsLunes),
+		errors.Is(err, domain.ErrSemanaFutura),
+		errors.Is(err, domain.ErrVinculacionNoEncontrada):
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	case errors.Is(err, domain.ErrModificacionFueraDeSemana),
+		errors.Is(err, domain.ErrEliminacionFueraDeSemana),
+		errors.Is(err, domain.ErrReporteTardioInmutable),
+		errors.Is(err, domain.ErrReporteTardioNoEliminable):
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	}

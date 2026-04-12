@@ -20,7 +20,11 @@ func NewTaskRepository(db *pgxpool.Pool) *taskRepository {
 }
 
 const taskSelectColumns = `
-	id, title, description, status, week, time_invested, assignment_id, time_registered, observations`
+	id, title, description, status, week_start, is_late, time_invested, assignment_id, time_registered, observations`
+
+func taskSelectColumnsTrim() string {
+	return `t.id, t.title, t.description, t.status, t.week_start, t.is_late, t.time_invested, t.assignment_id, t.time_registered, t.observations`
+}
 
 func (repository *taskRepository) Create(task *domain.Task) error {
 	const query = `
@@ -28,13 +32,14 @@ func (repository *taskRepository) Create(task *domain.Task) error {
 			title,
 			description,
 			status,
-			week,
+			week_start,
+			is_late,
 			time_invested,
 			assignment_id,
 			time_registered,
 			observations
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING id`
 
 	err := repository.db.QueryRow(
@@ -43,7 +48,8 @@ func (repository *taskRepository) Create(task *domain.Task) error {
 		task.Title,
 		task.Description,
 		string(task.Status),
-		task.Week,
+		task.WeekStart,
+		task.IsLate,
 		task.TimeInvested,
 		task.AssignmentId,
 		task.TimeRegistered,
@@ -84,11 +90,6 @@ func (repository *taskRepository) ListByUser(ctx context.Context, userID int64) 
 	defer rows.Close()
 
 	return repository.scanTasks(rows)
-}
-
-// taskSelectColumnsTrim returns column list with t. prefix for join queries.
-func taskSelectColumnsTrim() string {
-	return `t.id, t.title, t.description, t.status, t.week, t.time_invested, t.assignment_id, t.time_registered, t.observations`
 }
 
 func (repository *taskRepository) ListByProfessorID(ctx context.Context, professorID int64) ([]domain.Task, error) {
@@ -133,7 +134,8 @@ func scanTaskRow(row interface {
 		&task.Title,
 		&task.Description,
 		&status,
-		&task.Week,
+		&task.WeekStart,
+		&task.IsLate,
 		&task.TimeInvested,
 		&task.AssignmentId,
 		&task.TimeRegistered,
@@ -162,7 +164,8 @@ func (repository *taskRepository) GetByID(id string) (*domain.Task, error) {
 		&task.Title,
 		&task.Description,
 		&status,
-		&task.Week,
+		&task.WeekStart,
+		&task.IsLate,
 		&task.TimeInvested,
 		&task.AssignmentId,
 		&task.TimeRegistered,
@@ -200,7 +203,8 @@ func (repository *taskRepository) GetByIDForUser(ctx context.Context, id string,
 		&task.Title,
 		&task.Description,
 		&status,
-		&task.Week,
+		&task.WeekStart,
+		&task.IsLate,
 		&task.TimeInvested,
 		&task.AssignmentId,
 		&task.TimeRegistered,
@@ -225,11 +229,10 @@ func (repository *taskRepository) Update(task *domain.Task) error {
 			title = $1,
 			description = $2,
 			status = $3,
-			week = $4,
-			time_invested = $5,
-			time_registered = $6,
-			observations = $7
-		WHERE id = $8`
+			time_invested = $4,
+			time_registered = $5,
+			observations = $6
+		WHERE id = $7`
 
 	commandTag, err := repository.db.Exec(
 		context.Background(),
@@ -237,7 +240,6 @@ func (repository *taskRepository) Update(task *domain.Task) error {
 		task.Title,
 		task.Description,
 		string(task.Status),
-		task.Week,
 		task.TimeInvested,
 		task.TimeRegistered,
 		task.Observations,
