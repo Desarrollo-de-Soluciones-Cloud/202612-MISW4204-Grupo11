@@ -91,10 +91,11 @@ func (m *memoryPeriodRepo) UpdateStatus(_ context.Context, id int64, status stri
 }
 
 type memorySpaceRepo struct {
-	mu      sync.Mutex
-	byID    map[int64]*domain.AcademicSpace
-	nextID  int64
-	listErr error
+	mu            sync.Mutex
+	byID          map[int64]*domain.AcademicSpace
+	nextID        int64
+	listErr       error
+	findByProfErr error
 }
 
 func newMemorySpaceRepo() *memorySpaceRepo {
@@ -123,6 +124,9 @@ func (m *memorySpaceRepo) FindByID(_ context.Context, id int64) (*domain.Academi
 }
 
 func (m *memorySpaceRepo) FindByProfessor(_ context.Context, professorID int64) ([]domain.AcademicSpace, error) {
+	if m.findByProfErr != nil {
+		return nil, m.findByProfErr
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var out []domain.AcademicSpace
@@ -159,9 +163,12 @@ func (m *memorySpaceRepo) UpdateStatus(_ context.Context, id int64, status strin
 }
 
 type memoryAssignmentRepo struct {
-	mu     sync.Mutex
-	byID   map[int64]*domain.Assignment
-	nextID int64
+	mu              sync.Mutex
+	byID            map[int64]*domain.Assignment
+	nextID          int64
+	findByUserErr   error
+	listAllErr      error
+	findByProfWUErr error
 }
 
 func newMemoryAssignmentRepo() *memoryAssignmentRepo {
@@ -202,6 +209,9 @@ func (m *memoryAssignmentRepo) FindBySpace(_ context.Context, spaceID int64) ([]
 }
 
 func (m *memoryAssignmentRepo) FindByUser(_ context.Context, userID int64) ([]domain.Assignment, error) {
+	if m.findByUserErr != nil {
+		return nil, m.findByUserErr
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var out []domain.Assignment
@@ -229,6 +239,9 @@ func (m *memoryAssignmentRepo) FindActiveByUserAndRole(_ context.Context, _ int6
 }
 
 func (m *memoryAssignmentRepo) FindByProfessorWithUser(_ context.Context, professorID int64) ([]domain.AssignmentWithUser, error) {
+	if m.findByProfWUErr != nil {
+		return nil, m.findByProfWUErr
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var out []domain.AssignmentWithUser
@@ -245,6 +258,9 @@ func (m *memoryAssignmentRepo) FindByProfessorWithUser(_ context.Context, profes
 }
 
 func (m *memoryAssignmentRepo) ListAll(_ context.Context) ([]domain.Assignment, error) {
+	if m.listAllErr != nil {
+		return nil, m.listAllErr
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	out := make([]domain.Assignment, 0, len(m.byID))
@@ -266,9 +282,12 @@ func (m *memoryAssignmentRepo) Update(_ context.Context, a *domain.Assignment) e
 }
 
 type memoryReportRepo struct {
-	mu   sync.Mutex
-	byID map[int64]*domain.Report
-	next int64
+	mu                        sync.Mutex
+	byID                      map[int64]*domain.Report
+	next                      int64
+	createErr                 error
+	findByProfessorErr        error
+	findByProfessorAndWeekErr error
 }
 
 func newMemoryReportRepo() *memoryReportRepo {
@@ -276,6 +295,9 @@ func newMemoryReportRepo() *memoryReportRepo {
 }
 
 func (m *memoryReportRepo) Create(_ context.Context, r *domain.Report) error {
+	if m.createErr != nil {
+		return m.createErr
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	r.ID = m.next
@@ -297,6 +319,9 @@ func (m *memoryReportRepo) FindByID(_ context.Context, id int64) (*domain.Report
 }
 
 func (m *memoryReportRepo) FindByProfessorAndWeek(_ context.Context, professorID int64, weekStart time.Time) ([]domain.Report, error) {
+	if m.findByProfessorAndWeekErr != nil {
+		return nil, m.findByProfessorAndWeekErr
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var out []domain.Report
@@ -311,6 +336,9 @@ func (m *memoryReportRepo) FindByProfessorAndWeek(_ context.Context, professorID
 }
 
 func (m *memoryReportRepo) FindByProfessor(_ context.Context, professorID int64) ([]domain.Report, error) {
+	if m.findByProfessorErr != nil {
+		return nil, m.findByProfessorErr
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var out []domain.Report
@@ -328,6 +356,11 @@ type handlerTaskRepo struct {
 	nextID               int
 	assignmentUsers      map[int]int64
 	assignmentProfessors map[int]int64
+	listAllErr           error
+	listByUserErr        error
+	listByProfErr        error
+	getByUserAfterOK     error
+	saveAttachmentErr    error
 }
 
 func newHandlerTaskRepo() *handlerTaskRepo {
@@ -349,6 +382,9 @@ func (repo *handlerTaskRepo) Create(task *domain.Task) error {
 }
 
 func (repo *handlerTaskRepo) ListAll(_ context.Context) ([]domain.Task, error) {
+	if repo.listAllErr != nil {
+		return nil, repo.listAllErr
+	}
 	list := make([]domain.Task, 0, len(repo.tasks))
 	for _, task := range repo.tasks {
 		list = append(list, *task)
@@ -357,6 +393,9 @@ func (repo *handlerTaskRepo) ListAll(_ context.Context) ([]domain.Task, error) {
 }
 
 func (repo *handlerTaskRepo) ListByUser(_ context.Context, userID int64) ([]domain.Task, error) {
+	if repo.listByUserErr != nil {
+		return nil, repo.listByUserErr
+	}
 	var list []domain.Task
 	for _, task := range repo.tasks {
 		owner, ok := repo.assignmentUsers[task.AssignmentId]
@@ -368,6 +407,9 @@ func (repo *handlerTaskRepo) ListByUser(_ context.Context, userID int64) ([]doma
 }
 
 func (repo *handlerTaskRepo) ListByProfessorID(_ context.Context, professorID int64) ([]domain.Task, error) {
+	if repo.listByProfErr != nil {
+		return nil, repo.listByProfErr
+	}
 	var list []domain.Task
 	for _, task := range repo.tasks {
 		prof, ok := repo.assignmentProfessors[task.AssignmentId]
@@ -400,6 +442,9 @@ func (repo *handlerTaskRepo) GetByIDForUser(_ context.Context, id string, userID
 	if !ok || owner != userID {
 		return nil, domain.ErrTaskNotFound
 	}
+	if repo.getByUserAfterOK != nil {
+		return nil, repo.getByUserAfterOK
+	}
 	return task, nil
 }
 
@@ -425,6 +470,9 @@ func (repo *handlerTaskRepo) Delete(id string) error {
 }
 
 func (repo *handlerTaskRepo) SaveAttachment(attachment *domain.Attachment) error {
+	if repo.saveAttachmentErr != nil {
+		return repo.saveAttachmentErr
+	}
 	attachment.ID = repo.nextID
 	repo.nextID++
 	repo.attachments = append(repo.attachments, attachment)
@@ -488,6 +536,7 @@ func reportTaskKey(assignmentID int64, weekStart time.Time) string {
 
 type reportFakeAssignmentRepo struct {
 	byProfessor map[int64][]domain.AssignmentWithUser
+	err         error
 }
 
 func (f *reportFakeAssignmentRepo) Create(_ context.Context, _ *domain.Assignment) error { return nil }
@@ -507,6 +556,9 @@ func (f *reportFakeAssignmentRepo) FindActiveByUserAndRole(_ context.Context, _ 
 	return nil, nil
 }
 func (f *reportFakeAssignmentRepo) FindByProfessorWithUser(_ context.Context, profID int64) ([]domain.AssignmentWithUser, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
 	return f.byProfessor[profID], nil
 }
 func (f *reportFakeAssignmentRepo) ListAll(_ context.Context) ([]domain.Assignment, error) {
@@ -516,6 +568,7 @@ func (f *reportFakeAssignmentRepo) Update(_ context.Context, _ *domain.Assignmen
 
 type reportFakeTaskRepo struct {
 	byAssignmentWeek map[string][]domain.Task
+	err              error
 }
 
 func (f *reportFakeTaskRepo) Create(_ *domain.Task) error                      { return nil }
@@ -535,6 +588,9 @@ func (f *reportFakeTaskRepo) Delete(_ string) error                     { return
 func (f *reportFakeTaskRepo) SaveAttachment(_ *domain.Attachment) error { return nil }
 func (f *reportFakeTaskRepo) UpdateStatus(_ *domain.Task) error         { return nil }
 func (f *reportFakeTaskRepo) ListByAssignmentAndWeek(_ context.Context, assignmentID int64, weekStart time.Time) ([]domain.Task, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
 	key := reportTaskKey(assignmentID, weekStart)
 	return f.byAssignmentWeek[key], nil
 }
@@ -552,6 +608,12 @@ type handlerReportPDFStub struct{}
 
 func (handlerReportPDFStub) Generate(_ ports.PDFReportData) (string, error) {
 	return "/tmp/handler-test-report.pdf", nil
+}
+
+type handlerReportPDFFail struct{}
+
+func (handlerReportPDFFail) Generate(_ ports.PDFReportData) (string, error) {
+	return "", errors.New("pdf generation failed")
 }
 
 type handlerUserRepo struct {
