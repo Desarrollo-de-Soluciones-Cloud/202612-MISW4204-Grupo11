@@ -116,6 +116,19 @@ func TestLogin_userNotFound(t *testing.T) {
 	}
 }
 
+func TestLogin_repositoryError(t *testing.T) {
+	want := errors.New("db unavailable")
+	stub := &stubUserRepository{findError: want}
+	svc := &auth.LoginService{
+		Users:  stub,
+		Secret: []byte("test-jwt-secret-at-least-32-characters"),
+	}
+	_, err := svc.Login(context.Background(), "any@test.co", "pw")
+	if !errors.Is(err, want) {
+		t.Fatalf("want %v, got %v", want, err)
+	}
+}
+
 func TestParseToken_roundTrip(t *testing.T) {
 	hash, err := bcrypt.GenerateFromPassword([]byte("pw"), bcrypt.DefaultCost)
 	if err != nil {

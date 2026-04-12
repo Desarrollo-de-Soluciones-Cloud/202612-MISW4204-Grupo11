@@ -10,9 +10,6 @@ import (
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/domain"
 )
 
-
-
-
 func validSpaceInput(periodID, profID int64) spaces.CreateSpaceInput {
 	return spaces.CreateSpaceInput{
 		Name:             "Ingeniería de Software",
@@ -65,7 +62,6 @@ func TestCreateSpacePeriodoNoEncontrado(t *testing.T) {
 	}
 }
 
-
 func TestCreateSpaceTipoInvalido(t *testing.T) {
 	svc := newSpaceSvc(&stubSpaceRepo{}, &stubPeriodRepo{period: activePeriod()})
 	input := validSpaceInput(1, 10)
@@ -86,7 +82,6 @@ func TestCreateSpaceFechasInvalidas(t *testing.T) {
 	}
 }
 
-
 func TestGetSpaceOtroProfesor(t *testing.T) {
 	svc := newSpaceSvc(
 		&stubSpaceRepo{space: &domain.AcademicSpace{ID: 1, ProfessorID: 10, Status: "active"}},
@@ -106,5 +101,35 @@ func TestCloseSpaceYaCerrado(t *testing.T) {
 	err := svc.CloseSpace(context.Background(), 1, 10)
 	if !errors.Is(err, domain.ErrEspacioCerrado) {
 		t.Errorf("esperaba ErrEspacioCerrado, obtuve: %v", err)
+	}
+}
+
+func TestListSpaces_DelegatesToRepository(t *testing.T) {
+	want := []domain.AcademicSpace{{ID: 1, Name: "Aula", ProfessorID: 10}}
+	svc := newSpaceSvc(
+		&stubSpaceRepo{spaces: want},
+		&stubPeriodRepo{},
+	)
+	got, err := svc.ListSpaces(context.Background(), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].ID != 1 {
+		t.Fatalf("unexpected %+v", got)
+	}
+}
+
+func TestListAllSpaces_DelegatesToRepository(t *testing.T) {
+	want := []domain.AcademicSpace{{ID: 2, Name: "Lab"}}
+	svc := newSpaceSvc(
+		&stubSpaceRepo{spaces: want},
+		&stubPeriodRepo{},
+	)
+	got, err := svc.ListAllSpaces(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].Name != "Lab" {
+		t.Fatalf("unexpected %+v", got)
 	}
 }

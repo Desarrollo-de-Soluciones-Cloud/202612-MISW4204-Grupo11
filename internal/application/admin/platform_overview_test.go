@@ -95,6 +95,9 @@ type stubTaskLister struct {
 }
 
 func (s *stubTaskLister) ListAll(_ context.Context) ([]domain.Task, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
 	return s.tasks, s.err
 }
 
@@ -152,5 +155,20 @@ func TestPlatformOverviewService_GetOverview_PropagatesPeriodsError(t *testing.T
 	_, err := svc.GetOverview(context.Background())
 	if err == nil || !errors.Is(err, want) {
 		t.Fatalf("expected periods error, got %v", err)
+	}
+}
+
+func TestPlatformOverviewService_GetOverview_PropagatesTasksError(t *testing.T) {
+	want := errors.New("tasks fail")
+	svc := admin.NewPlatformOverviewService(
+		&stubUserRepo{users: []domain.User{{ID: 1}}},
+		&stubPeriodRepo{periods: []domain.AcademicPeriod{{ID: 1}}},
+		&stubSpaceRepo{spaces: []domain.AcademicSpace{{ID: 1}}},
+		&stubAssignRepo{assignments: []domain.Assignment{{ID: 1}}},
+		&stubTaskLister{err: want},
+	)
+	_, err := svc.GetOverview(context.Background())
+	if err == nil || !errors.Is(err, want) {
+		t.Fatalf("expected tasks error, got %v", err)
 	}
 }

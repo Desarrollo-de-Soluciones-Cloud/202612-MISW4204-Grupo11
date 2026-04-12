@@ -14,6 +14,8 @@ type periodRepoStub struct {
 	created []*domain.AcademicPeriod
 	period  *domain.AcademicPeriod
 	err     error
+	periods []domain.AcademicPeriod
+	listErr error
 }
 
 func (p *periodRepoStub) FindByID(_ context.Context, id int64) (*domain.AcademicPeriod, error) {
@@ -36,6 +38,12 @@ func (p *periodRepoStub) Create(_ context.Context, period *domain.AcademicPeriod
 }
 
 func (p *periodRepoStub) List(_ context.Context) ([]domain.AcademicPeriod, error) {
+	if p.listErr != nil {
+		return nil, p.listErr
+	}
+	if p.periods != nil {
+		return p.periods, nil
+	}
 	return nil, nil
 }
 
@@ -99,5 +107,27 @@ func TestAcademicPeriodService_ClosePeriod_AlreadyClosed(t *testing.T) {
 	err := svc.ClosePeriod(context.Background(), 2)
 	if !errors.Is(err, domain.ErrPeriodoCerrado) {
 		t.Fatalf("want ErrPeriodoCerrado, got %v", err)
+	}
+}
+
+func TestAcademicPeriodService_ListPeriods_OK(t *testing.T) {
+	repo := &periodRepoStub{periods: []domain.AcademicPeriod{{ID: 1, Code: "2026-1", Status: "active"}}}
+	svc := spaces.NewAcademicPeriodService(repo)
+	out, err := svc.ListPeriods(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out) != 1 || out[0].Code != "2026-1" {
+		t.Fatalf("unexpected %+v", out)
+	}
+}
+
+func TestAcademicPeriodService_ListPeriods_RepositoryError(t *testing.T) {
+	want := errors.New("list fail")
+	repo := &periodRepoStub{listErr: want}
+	svc := spaces.NewAcademicPeriodService(repo)
+	_, err := svc.ListPeriods(context.Background())
+	if !errors.Is(err, want) {
+		t.Fatalf("want %v, got %v", want, err)
 	}
 }

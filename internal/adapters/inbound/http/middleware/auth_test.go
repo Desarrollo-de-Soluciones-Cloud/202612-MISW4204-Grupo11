@@ -88,6 +88,21 @@ func TestAutenticar_InvalidToken(t *testing.T) {
 	}
 }
 
+func TestAutenticar_BearerHeaderWithoutSpace(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	secret := []byte("test-jwt-secret-at-least-32-characters-long")
+	r := gin.New()
+	r.GET("/x", middleware.Autenticar(secret), func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	req := httptest.NewRequest(http.MethodGet, "/x", nil)
+	req.Header.Set("Authorization", "Bearerno-space")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("code %d, want 401", rec.Code)
+	}
+}
+
 func TestAutenticar_OK(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	secret := []byte("test-jwt-secret-at-least-32-characters-long")
@@ -168,6 +183,22 @@ func TestExigeRol_NoRolesInContext(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	r.GET("/x", middleware.ExigeRol(domain.RolAdministrador), func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/x", nil))
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("code %d, want 403", rec.Code)
+	}
+}
+
+func TestExigeRol_RolesNotStringSlice(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.GET("/x", func(c *gin.Context) {
+		c.Set("authRoles", 123)
+		c.Next()
+	}, middleware.ExigeRol(domain.RolAdministrador), func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 	rec := httptest.NewRecorder()
