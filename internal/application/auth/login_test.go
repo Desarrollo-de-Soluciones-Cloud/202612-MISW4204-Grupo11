@@ -89,3 +89,57 @@ func TestLogin_invalidCredentials(t *testing.T) {
 		t.Fatalf("unexpected error: %v", loginErr)
 	}
 }
+
+func TestLogin_emptyJWTSecret(t *testing.T) {
+	stub := &stubUserRepository{
+		credentials: &domain.UserCredentials{ID: 1, Email: "a@b.co", PasswordHash: "x"},
+	}
+	svc := &auth.LoginService{Users: stub, Secret: nil}
+	_, err := svc.Login(context.Background(), "a@b.co", "any")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestLogin_userNotFound(t *testing.T) {
+	stub := &stubUserRepository{credentials: nil}
+	svc := &auth.LoginService{
+		Users:  stub,
+		Secret: []byte("test-jwt-secret-at-least-32-characters"),
+	}
+	_, err := svc.Login(context.Background(), "missing@test.co", "pw")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !errors.Is(err, auth.ErrInvalidCredentials) {
+		t.Fatalf("want ErrInvalidCredentials, got %v", err)
+	}
+}
+
+func TestParseToken_roundTrip(t *testing.T) {
+	hash, err := bcrypt.GenerateFromPassword([]byte("pw"), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stub := &stubUserRepository{
+		credentials: &domain.UserCredentials{
+			ID:           99,
+			Email:        "tok@test.co",
+			PasswordHash: string(hash),
+			Roles:        []string{"monitor", "profesor"},
+		},
+	}
+	secret := []byte("test-jwt-secret-at-least-32-characters")
+	svc := &auth.LoginService{Users: stub, Secret: secret}
+	res, err := svc.Login(context.Background(), "tok@test.co", "pw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	uid, roles, err := auth.ParseToken(res.Token, secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if uid != 99 || len(roles) != 2 {
+		t.Fatalf("uid=%d roles=%v", uid, roles)
+	}
+}

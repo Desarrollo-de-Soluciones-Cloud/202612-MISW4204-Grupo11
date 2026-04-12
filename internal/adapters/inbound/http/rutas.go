@@ -62,7 +62,6 @@ func NewEngine(deps Deps) *gin.Engine {
 		spaces.POST("/:id/assignments", deps.Assignments.Create)
 		spaces.GET("/:id/assignments", deps.Assignments.ListBySpace)
 		spaces.GET("/:id/assignments/:assignmentID", deps.Assignments.Get)
-		spaces.PATCH("/:id/assignments/:assignmentID", deps.Assignments.UpdateByAdmin)
 
 	}
 

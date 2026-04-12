@@ -285,3 +285,84 @@ func TestCreateAssignmentFechasEspacioFueraDelPeriodo(t *testing.T) {
 		})
 	}
 }
+
+func TestCreateAssignment_RF05_ExceedsGraduateAssistantHours(t *testing.T) {
+	existing := []domain.Assignment{
+		{UserID: 5, AcademicSpaceID: 2, RoleInAssignment: "graduate_assistant", ContractedHoursPerWeek: 20},
+	}
+	svc := appspaces.NewAssignmentService(
+		&stubAssignmentRepo{assignments: existing},
+		&stubSpaceRepo{space: activeSpace()},
+		&stubPeriodRepo{period: activePeriod()},
+		appspaces.NoOpHourRuleChecker{},
+	)
+	input := validAssignmentInput()
+	input.RoleInAssignment = domain.RoleGraduateAssistant
+	input.ContractedHoursPerWeek = 5
+	_, err := svc.CreateAssignment(context.Background(), input)
+	if err == nil {
+		t.Fatal("expected error when total AG hours > 22")
+	}
+}
+
+func TestCreateAssignment_RF05_TooManyMonitorias(t *testing.T) {
+	existing := []domain.Assignment{
+		{UserID: 5, AcademicSpaceID: 2, RoleInAssignment: "monitor", ContractedHoursPerWeek: 4},
+		{UserID: 5, AcademicSpaceID: 3, RoleInAssignment: "monitor", ContractedHoursPerWeek: 4},
+		{UserID: 5, AcademicSpaceID: 4, RoleInAssignment: "monitor", ContractedHoursPerWeek: 4},
+	}
+	svc := appspaces.NewAssignmentService(
+		&stubAssignmentRepo{assignments: existing},
+		&stubSpaceRepo{space: activeSpace()},
+		&stubPeriodRepo{period: activePeriod()},
+		appspaces.NoOpHourRuleChecker{},
+	)
+	input := validAssignmentInput()
+	input.RoleInAssignment = domain.RoleMonitor
+	input.ContractedHoursPerWeek = 4
+	_, err := svc.CreateAssignment(context.Background(), input)
+	if err == nil {
+		t.Fatal("expected error when fourth monitoría")
+	}
+}
+
+func TestCreateAssignment_RF05_Violates40PercentRule(t *testing.T) {
+	existing := []domain.Assignment{
+		{UserID: 5, AcademicSpaceID: 2, RoleInAssignment: "graduate_assistant", ContractedHoursPerWeek: 10},
+	}
+	svc := appspaces.NewAssignmentService(
+		&stubAssignmentRepo{assignments: existing},
+		&stubSpaceRepo{space: activeSpace()},
+		&stubPeriodRepo{period: activePeriod()},
+		appspaces.NoOpHourRuleChecker{},
+	)
+	input := validAssignmentInput()
+	input.RoleInAssignment = domain.RoleMonitor
+	input.ContractedHoursPerWeek = 5
+	_, err := svc.CreateAssignment(context.Background(), input)
+	if err == nil {
+		t.Fatal("expected error when monitor hours exceed 40% of AG")
+	}
+}
+
+func TestUpdateAssignmentByAdmin_OK(t *testing.T) {
+	svc := appspaces.NewAssignmentService(
+		&stubAssignmentRepo{assignment: &domain.Assignment{
+			ID: 7, UserID: 1, AcademicSpaceID: 1, ProfessorID: 10,
+			RoleInAssignment: "monitor", ContractedHoursPerWeek: 8,
+		}},
+		&stubSpaceRepo{},
+		&stubPeriodRepo{},
+		appspaces.NoOpHourRuleChecker{},
+	)
+	out, err := svc.UpdateAssignmentByAdmin(context.Background(), 7, appspaces.UpdateAssignmentInput{
+		RoleInAssignment:       "graduate_assistant",
+		ContractedHoursPerWeek: 10,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.RoleInAssignment != "graduate_assistant" || out.ContractedHoursPerWeek != 10 {
+		t.Fatalf("unexpected %+v", out)
+	}
+}
