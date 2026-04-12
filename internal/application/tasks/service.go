@@ -19,19 +19,23 @@ import (
 type TaskService struct {
 	repo        ports.TaskRepository
 	assignments domain.AssignmentRepository
+	NowFunc     func() time.Time
 }
 
 type UpdateTaskInput struct {
 	Title        *string
 	Description  *string
 	Status       *domain.Status
-	Week         *int
 	TimeInvested *int
 	Observations *string
 }
 
 func NewTaskService(repo ports.TaskRepository, assignments domain.AssignmentRepository) *TaskService {
-	return &TaskService{repo: repo, assignments: assignments}
+	return &TaskService{repo: repo, assignments: assignments, NowFunc: time.Now}
+}
+
+func (s *TaskService) currentWeekStart() time.Time {
+	return domain.WeekStartFor(s.NowFunc())
 }
 
 func (s *TaskService) Create(ctx context.Context, task *domain.Task, currentUserID int64) error {
@@ -47,8 +51,17 @@ func (s *TaskService) Create(ctx context.Context, task *domain.Task, currentUser
 		return fmt.Errorf("status is required")
 	}
 
-	if task.Week <= 0 {
-		return fmt.Errorf("week must be greater than 0")
+	if err := domain.ValidateWeekStart(task.WeekStart); err != nil {
+		return err
+	}
+
+	currentMonday := s.currentWeekStart()
+	if task.WeekStart.After(currentMonday) {
+		return domain.ErrSemanaFutura
+	}
+
+	if task.WeekStart.Before(currentMonday) {
+		task.IsLate = true
 	}
 
 	if task.TimeInvested <= 0 {
@@ -67,13 +80,12 @@ func (s *TaskService) Create(ctx context.Context, task *domain.Task, currentUser
 		return domain.ErrAssignmentNotOwned
 	}
 
-	//PARA REVISAR, POR QUE ES LA SUMA DE TODAS LAS TAREAS.
 	if task.TimeInvested > 22 {
 		return fmt.Errorf("no se pueden registrar más de 22 horas en una sola tarea")
 	}
 
 	if task.TimeRegistered.IsZero() {
-		task.TimeRegistered = time.Now()
+		task.TimeRegistered = s.NowFunc()
 	}
 
 	return s.repo.Create(task)
@@ -101,8 +113,12 @@ func (s *TaskService) Delete(ctx context.Context, taskID string, userID int64) e
 		return err
 	}
 
-	if isPast7Days(task.TimeRegistered) && isOpenStatus(task.Status) {
-		return fmt.Errorf("ya han pasado 7 días, no se puede borrar")
+	if task.IsLate {
+		return domain.ErrReporteTardioNoEliminable
+	}
+
+	if !task.BelongsToCurrentWeek() {
+		return domain.ErrEliminacionFueraDeSemana
 	}
 
 	return s.repo.Delete(taskID)
@@ -118,8 +134,12 @@ func (s *TaskService) Update(ctx context.Context, task *domain.Task, userID int6
 		return err
 	}
 
-	if isPast7Days(existingTask.TimeRegistered) {
-		return fmt.Errorf("7 days have passed by, please create a new task")
+	if existingTask.IsLate {
+		return domain.ErrReporteTardioInmutable
+	}
+
+	if !existingTask.BelongsToCurrentWeek() {
+		return domain.ErrModificacionFueraDeSemana
 	}
 
 	if strings.TrimSpace(task.Title) == "" {
@@ -134,10 +154,6 @@ func (s *TaskService) Update(ctx context.Context, task *domain.Task, userID int6
 		return fmt.Errorf("status is required")
 	}
 
-	if task.Week <= 0 {
-		return fmt.Errorf("week must be greater than 0")
-	}
-
 	if task.TimeInvested <= 0 {
 		return fmt.Errorf("time invested must be greater than 0")
 	}
@@ -147,6 +163,8 @@ func (s *TaskService) Update(ctx context.Context, task *domain.Task, userID int6
 	}
 
 	task.TimeRegistered = existingTask.TimeRegistered
+	task.IsLate = existingTask.IsLate
+	task.WeekStart = existingTask.WeekStart
 
 	return s.repo.Update(task)
 }
@@ -157,8 +175,12 @@ func (s *TaskService) PartialUpdate(ctx context.Context, id string, userID int64
 		return nil, err
 	}
 
-	if isPast7Days(task.TimeRegistered) {
-		return nil, fmt.Errorf("7 days have passed by, please create a new task")
+	if task.IsLate {
+		return nil, domain.ErrReporteTardioInmutable
+	}
+
+	if !task.BelongsToCurrentWeek() {
+		return nil, domain.ErrModificacionFueraDeSemana
 	}
 
 	if input.Title != nil {
@@ -169,9 +191,6 @@ func (s *TaskService) PartialUpdate(ctx context.Context, id string, userID int64
 	}
 	if input.Status != nil {
 		task.Status = *input.Status
-	}
-	if input.Week != nil {
-		task.Week = *input.Week
 	}
 	if input.TimeInvested != nil {
 		task.TimeInvested = *input.TimeInvested
@@ -188,9 +207,6 @@ func (s *TaskService) PartialUpdate(ctx context.Context, id string, userID int64
 	}
 	if strings.TrimSpace(string(task.Status)) == "" {
 		return nil, fmt.Errorf("status is required")
-	}
-	if task.Week <= 0 {
-		return nil, fmt.Errorf("week must be greater than 0")
 	}
 	if task.TimeInvested <= 0 {
 		return nil, fmt.Errorf("time invested must be greater than 0")
@@ -216,8 +232,12 @@ func (s *TaskService) UpdateStatus(ctx context.Context, task *domain.Task, userI
 		return err
 	}
 
-	if isPast7Days(existingTask.TimeRegistered) {
-		return fmt.Errorf("7 days have passed by, please create a new task")
+	if existingTask.IsLate {
+		return domain.ErrReporteTardioInmutable
+	}
+
+	if !existingTask.BelongsToCurrentWeek() {
+		return domain.ErrModificacionFueraDeSemana
 	}
 
 	if strings.TrimSpace(string(task.Status)) == "" {
@@ -243,7 +263,7 @@ func (s *TaskService) UploadAttachment(ctx context.Context, taskID string, userI
 		return nil, fmt.Errorf("invalid task id")
 	}
 
-	uniqueName := fmt.Sprintf("%d_%s", time.Now().UnixNano(), file.Filename)
+	uniqueName := fmt.Sprintf("%d_%s", s.NowFunc().UnixNano(), file.Filename)
 	filePath := filepath.Join("./uploads", uniqueName)
 
 	if err := saveFile(file, filePath); err != nil {
@@ -285,16 +305,4 @@ func saveFile(file *multipart.FileHeader, dst string) error {
 
 	_, err = io.Copy(out, src)
 	return err
-}
-
-func isPast7Days(t time.Time) bool {
-	if t.IsZero() {
-		return false
-	}
-	return time.Since(t) >= 7*24*time.Hour
-}
-
-func isOpenStatus(status domain.Status) bool {
-	value := strings.ToUpper(strings.TrimSpace(string(status)))
-	return value == "OPEN" || value == "ABIERTO"
 }
