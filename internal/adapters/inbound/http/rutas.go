@@ -20,6 +20,7 @@ type Deps struct {
 	AcadSpaces  *handlers.AcademicSpaceHandler
 	Periods     *handlers.AcademicPeriodHandler
 	Assignments *handlers.AssignmentHandler
+	Reports     *handlers.ReportHandler
 }
 
 func NewEngine(deps Deps) *gin.Engine {
@@ -78,6 +79,15 @@ func NewEngine(deps Deps) *gin.Engine {
 	professors.Use(middleware.ExigeRol(domain.RolProfesor))
 	professors.GET("/me/assignments", deps.Assignments.ListByProfessor)
 	professors.GET("/me/tasks", deps.TaskHandler.ListForProfessor)
+
+	reports := apiV1.Group("/reports")
+	reports.Use(middleware.Autenticar(deps.JWTSecret))
+	reports.Use(middleware.ExigeRol(domain.RolProfesor))
+	{
+		reports.POST("/weekly", deps.Reports.GenerateWeekly)
+		reports.GET("", deps.Reports.List)
+		reports.GET("/:id/download", deps.Reports.Download)
+	}
 
 	periods := apiV1.Group("/periods")
 	periods.Use(middleware.Autenticar(deps.JWTSecret))

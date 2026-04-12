@@ -15,17 +15,37 @@ services:
       timeout: 5s
       retries: 5
 
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   api:
     build: .
     environment:
       HTTP_ADDR: ":8080"
       DATABASE_URL: postgres://app:app@postgres:5432/app?sslmode=disable
       JWT_SECRET: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.KMUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30"
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: llama3.2
     ports:
       - "8080:8080"
+    volumes:
+      - uploads:/app/uploads
     depends_on:
       postgres:
+        condition: service_healthy
+      ollama:
         condition: service_healthy
 
 volumes:
   pgdata:
+  ollama_data:
+  uploads:

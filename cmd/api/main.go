@@ -11,8 +11,11 @@ import (
 	appadmin "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/admin"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/auth"
 	appspaces "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/spaces"
+	appreports "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/reports"
 	apptasks "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/tasks"
 	appusers "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/users"
+	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/outbound/ollama"
+	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/outbound/pdf"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/config"
 )
 
@@ -63,6 +66,12 @@ func main() {
 	taskService := apptasks.NewTaskService(taskRepo, assignmentRepo)
 	taskHandler := handlers.NewTaskHandler(taskService)
 
+	ollamaClient := ollama.NewClient(cfg.OllamaURL, cfg.OllamaModel)
+	pdfGenerator := pdf.NewGenerator("./uploads/reports")
+	reportRepo := postgres.NewReportRepo(pool)
+	reportService := appreports.NewReportService(reportRepo, assignmentRepo, taskRepo, ollamaClient, pdfGenerator)
+	reportHandler := handlers.NewReportHandler(reportService)
+
 	platformOverview := appadmin.NewPlatformOverviewService(
 		userRepo,
 		periodRepo,
@@ -82,6 +91,7 @@ func main() {
 		AcadSpaces:  spaceHandler,
 		Periods:     periodHandler,
 		Assignments: assignmentHandler,
+		Reports:     reportHandler,
 	})
 
 	log.Printf("listening %s", cfg.HTTPAddr)

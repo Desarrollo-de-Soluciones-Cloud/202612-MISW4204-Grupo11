@@ -12,6 +12,7 @@ FROM alpine:3.21
 RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 COPY --from=build /out/api ./api
+RUN mkdir -p /app/uploads/reports && chown -R nobody:nobody /app/uploads
 USER nobody
 EXPOSE 8080
 ENTRYPOINT ["/app/api"]

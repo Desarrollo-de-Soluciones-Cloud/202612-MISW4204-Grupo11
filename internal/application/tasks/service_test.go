@@ -133,6 +133,10 @@ func (repo *fakeRepo) UpdateStatus(task *domain.Task) error {
 	return nil
 }
 
+func (repo *fakeRepo) ListByAssignmentAndWeek(_ context.Context, _ int64, _ time.Time) ([]domain.Task, error) {
+	return nil, nil
+}
+
 var errLegacyTaskNotFound = errors.New("task not found")
 
 type fakeAssignmentRepo struct {

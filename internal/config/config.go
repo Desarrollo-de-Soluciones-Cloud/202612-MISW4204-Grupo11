@@ -9,9 +9,11 @@ import (
 const defaultLocalPostgresURL = "postgres://app:app@127.0.0.1:5432/app?sslmode=disable"
 
 type Config struct {
-	HTTPAddr  string
-	DBURL     string
-	JWTSecret string
+	HTTPAddr    string
+	DBURL       string
+	JWTSecret   string
+	OllamaURL   string
+	OllamaModel string
 }
 
 // Load reads configuration from environment variables.
@@ -29,6 +31,9 @@ func Load() (Config, error) {
 	if config.DBURL == "" {
 		config.DBURL = defaultLocalPostgresURL
 	}
+
+	config.OllamaURL = envOrDefault("OLLAMA_URL", "http://localhost:11434")
+	config.OllamaModel = envOrDefault("OLLAMA_MODEL", "llama3.2")
 
 	return config, nil
 }
