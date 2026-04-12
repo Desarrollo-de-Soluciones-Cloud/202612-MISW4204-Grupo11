@@ -27,7 +27,15 @@ func CheckMaxHoursPerRole(listAssignmentUser []Assignment) bool {
 
 //RF-05.1 Límite de monitorías simultáneas y RF-05.6
 func LimitClasesPerUser(listAssignmentUser []Assignment) bool {
-	if len(listAssignmentUser) > 3 {
+	countMonitorias := 0
+
+	for _, assignment := range listAssignmentUser {
+		if assignment.RoleInAssignment == "monitor" {
+			countMonitorias += 1
+		}
+	}
+
+	if countMonitorias > 3 {
 		return true
 	}
 	return false
