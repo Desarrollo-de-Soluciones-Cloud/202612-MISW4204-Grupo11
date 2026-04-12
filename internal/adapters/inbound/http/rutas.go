@@ -61,7 +61,16 @@ func NewEngine(deps Deps) *gin.Engine {
 		spaces.POST("/:id/assignments", deps.Assignments.Create)
 		spaces.GET("/:id/assignments", deps.Assignments.ListBySpace)
 		spaces.GET("/:id/assignments/:assignmentID", deps.Assignments.Get)
+		spaces.PATCH("/:id/assignments/:assignmentID", deps.Assignments.UpdateByAdmin)
 
+	}
+
+	listAssignments := apiV1.Group("userAssignments")
+	listAssignments.Use(middleware.Autenticar(deps.JWTSecret))
+	listAssignments.Use(middleware.ExigeRol(domain.RolAsistenteGraduado, domain.RolMonitor, domain.RolProfesor))
+	{
+		listAssignments.GET("", deps.Assignments.ListMyAssignments)
+		listAssignments.GET("/profesor", deps.Assignments.ListByProfessor)
 	}
 
 	professors := apiV1.Group("/professors")
