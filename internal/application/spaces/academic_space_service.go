@@ -20,7 +20,6 @@ func NewAcademicSpaceService(
 	return &AcademicSpaceService{spaces: spaces, periods: periods}
 }
 
-
 type CreateSpaceInput struct {
 	Name             string
 	Type             string
@@ -30,7 +29,6 @@ type CreateSpaceInput struct {
 	EndDate          time.Time
 	Observations     string
 }
-
 
 func (spaceService *AcademicSpaceService) CreateSpace(ctx context.Context, input CreateSpaceInput) (*domain.AcademicSpace, error) {
 	period, err := spaceService.periods.FindByID(ctx, input.AcademicPeriodID)
@@ -75,6 +73,10 @@ func (spaceService *AcademicSpaceService) GetSpace(ctx context.Context, id, prof
 
 func (spaceService *AcademicSpaceService) ListSpaces(ctx context.Context, professorID int64) ([]domain.AcademicSpace, error) {
 	return spaceService.spaces.FindByProfessor(ctx, professorID)
+}
+
+func (spaceService *AcademicSpaceService) ListAllSpaces(ctx context.Context) ([]domain.AcademicSpace, error) {
+	return spaceService.spaces.ListAll(ctx)
 }
 
 func (spaceService *AcademicSpaceService) CloseSpace(ctx context.Context, id, professorID int64) error {

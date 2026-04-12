@@ -23,7 +23,6 @@ type createAssignmentRequest struct {
 	ContractedHoursPerWeek int    `json:"contracted_hours_per_week" binding:"required,min=1"`
 }
 
-
 func (handler *AssignmentHandler) Create(c *gin.Context) {
 	professorID, ok := professorIDFromContext(c)
 	if !ok {
@@ -141,6 +140,15 @@ func (handler *AssignmentHandler) ListByProfessor(c *gin.Context) {
 	}
 
 	assignments, err := handler.svc.ListAssignmentsByProfessor(c.Request.Context(), professorID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, assignments)
+}
+
+func (handler *AssignmentHandler) ListAllForAdmin(c *gin.Context) {
+	assignments, err := handler.svc.ListAllAssignments(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
