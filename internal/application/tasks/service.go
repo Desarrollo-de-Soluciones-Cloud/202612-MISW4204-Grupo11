@@ -52,11 +52,6 @@ func (s *TaskService) Create(task *domain.Task) error {
 		return fmt.Errorf("time invested must be greater than 0")
 	}
 
-	//PARA REVISAR, POR QUE ES LA SUMA DE TODAS LAS TAREAS.
-	if task.TimeInvested > 22 {
-		return fmt.Errorf("no se pueden registrar más de 22 horas en una sola tarea")
-	}
-
 	if task.TimeRegistered.IsZero() {
 		task.TimeRegistered = time.Now()
 	}

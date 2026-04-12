@@ -61,7 +61,6 @@ func (service *AssignmentService) CreateAssignment(ctx context.Context, input Cr
 		return nil, domain.ErrEspacioCerradoVinculacion
 	}
 
-	
 	period, err := service.periodRepo.FindByID(ctx, space.AcademicPeriodID)
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener período académico: %w", err)
@@ -71,7 +70,6 @@ func (service *AssignmentService) CreateAssignment(ctx context.Context, input Cr
 		return nil, domain.ErrPeriodoCerradoVinculacion
 	}
 
-	
 	if space.StartDate.Before(period.StartDate) || space.EndDate.After(period.EndDate) {
 		return nil, domain.ErrFechasEspacioFueraDelPeriodo
 	}
@@ -99,9 +97,33 @@ func (service *AssignmentService) CreateAssignment(ctx context.Context, input Cr
 		return nil, err
 	}
 
+	listUser, err := service.assignmentRepo.FindByUser(ctx, input.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("error consultando vinculaciones del usuario: %w", err)
+	}
+
+	listUser = append(listUser, *assignment)
+
+	resultAboveHours := domain.CheckMaxHoursPerRole(listUser)
+	resultNumberOfClases := domain.LimitClasesPerUser(listUser)
+	resultRuleCombined := domain.Validar40PercentOfMonitorHours(listUser)
+
+	if resultNumberOfClases {
+		return nil, fmt.Errorf("El usuario ya tiene mas e 3 monitorias, no se puede agregar otra monitoria mas.")
+	}
+
+	if resultAboveHours {
+		return nil, fmt.Errorf("El usuario ha pasado el limite de horas para su role " + input.RoleInAssignment)
+	}
+
+	if resultRuleCombined {
+		return nil, fmt.Errorf("El no puede asignarse mas horas de monitoria. Si se agrega esta vinculacion, se estaria pasando el limite de 40 porciente de las horas contratadas como " + input.RoleInAssignment)
+	}
+
 	if err := service.assignmentRepo.Create(ctx, assignment); err != nil {
 		return nil, fmt.Errorf("error al crear vinculación: %w", err)
 	}
+
 	return assignment, nil
 }
 
