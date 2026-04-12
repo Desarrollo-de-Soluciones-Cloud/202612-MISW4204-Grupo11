@@ -157,6 +157,10 @@ func (service *AssignmentService) ListAssignmentsByProfessor(ctx context.Context
 	return service.assignmentRepo.FindByProfessorWithUser(ctx, professorID)
 }
 
+func (service *AssignmentService) ListAllAssignments(ctx context.Context) ([]domain.Assignment, error) {
+	return service.assignmentRepo.ListAll(ctx)
+}
+
 type UpdateAssignmentInput struct {
 	RoleInAssignment       string
 	ContractedHoursPerWeek int

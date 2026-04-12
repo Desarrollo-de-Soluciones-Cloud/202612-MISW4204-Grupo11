@@ -19,6 +19,9 @@ func NewTaskRepository(db *pgxpool.Pool) *taskRepository {
 	return &taskRepository{db: db}
 }
 
+const taskSelectColumns = `
+	id, title, description, status, week, time_invested, assignment_id, time_registered, observations`
+
 func (repository *taskRepository) Create(task *domain.Task) error {
 	const query = `
 		INSERT INTO tasks (
@@ -32,8 +35,7 @@ func (repository *taskRepository) Create(task *domain.Task) error {
 			observations
 		)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING id;
-	`
+		RETURNING id`
 
 	err := repository.db.QueryRow(
 		context.Background(),
@@ -43,7 +45,7 @@ func (repository *taskRepository) Create(task *domain.Task) error {
 		string(task.Status),
 		task.Week,
 		task.TimeInvested,
-		task.Assignment_id,
+		task.AssignmentId,
 		task.TimeRegistered,
 		task.Observations,
 	).Scan(&task.ID)
@@ -55,56 +57,93 @@ func (repository *taskRepository) Create(task *domain.Task) error {
 	return nil
 }
 
-func (repository *taskRepository) GetAll() ([]domain.Task, error) {
-	const query = `
-		SELECT
-			id,
-			title,
-			description,
-			status,
-			week,
-			time_invested,
-			time_registered,
-			observations
-		FROM tasks
-		ORDER BY id;
-	`
+func (repository *taskRepository) ListAll(ctx context.Context) ([]domain.Task, error) {
+	query := `SELECT ` + taskSelectColumns + ` FROM tasks ORDER BY id`
 
-	rows, err := repository.db.Query(context.Background(), query)
+	rows, err := repository.db.Query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("error getting tasks: %w", err)
 	}
 	defer rows.Close()
 
-	tasks := []domain.Task{}
+	return repository.scanTasks(rows)
+}
 
+func (repository *taskRepository) ListByUser(ctx context.Context, userID int64) ([]domain.Task, error) {
+	query := `
+		SELECT ` + taskSelectColumnsTrim() + `
+		FROM tasks t
+		INNER JOIN assignments a ON a.id = t.assignment_id
+		WHERE a.user_id = $1
+		ORDER BY t.id`
+
+	rows, err := repository.db.Query(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("error listing tasks by user: %w", err)
+	}
+	defer rows.Close()
+
+	return repository.scanTasks(rows)
+}
+
+// taskSelectColumnsTrim returns column list with t. prefix for join queries.
+func taskSelectColumnsTrim() string {
+	return `t.id, t.title, t.description, t.status, t.week, t.time_invested, t.assignment_id, t.time_registered, t.observations`
+}
+
+func (repository *taskRepository) ListByProfessorID(ctx context.Context, professorID int64) ([]domain.Task, error) {
+	query := `
+		SELECT ` + taskSelectColumnsTrim() + `
+		FROM tasks t
+		INNER JOIN assignments a ON a.id = t.assignment_id
+		WHERE a.professor_id = $1
+		ORDER BY t.id`
+
+	rows, err := repository.db.Query(ctx, query, professorID)
+	if err != nil {
+		return nil, fmt.Errorf("error listing tasks by professor: %w", err)
+	}
+	defer rows.Close()
+
+	return repository.scanTasks(rows)
+}
+
+func (repository *taskRepository) scanTasks(rows pgx.Rows) ([]domain.Task, error) {
+	var tasks []domain.Task
 	for rows.Next() {
-		var task domain.Task
-		var status string
-
-		err := rows.Scan(
-			&task.ID,
-			&task.Title,
-			&task.Description,
-			&status,
-			&task.Week,
-			&task.TimeInvested,
-			&task.TimeRegistered,
-			&task.Observations,
-		)
+		task, err := scanTaskRow(rows)
 		if err != nil {
-			return nil, fmt.Errorf("error scanning task: %w", err)
+			return nil, err
 		}
-
-		task.Status = domain.Status(status)
-		tasks = append(tasks, task)
+		tasks = append(tasks, *task)
 	}
-
-	if rows.Err() != nil {
-		return nil, fmt.Errorf("error iterating task rows: %w", rows.Err())
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating task rows: %w", err)
 	}
-
 	return tasks, nil
+}
+
+func scanTaskRow(row interface {
+	Scan(dest ...any) error
+}) (*domain.Task, error) {
+	var task domain.Task
+	var status string
+	err := row.Scan(
+		&task.ID,
+		&task.Title,
+		&task.Description,
+		&status,
+		&task.Week,
+		&task.TimeInvested,
+		&task.AssignmentId,
+		&task.TimeRegistered,
+		&task.Observations,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error scanning task: %w", err)
+	}
+	task.Status = domain.Status(status)
+	return &task, nil
 }
 
 func (repository *taskRepository) GetByID(id string) (*domain.Task, error) {
@@ -113,19 +152,7 @@ func (repository *taskRepository) GetByID(id string) (*domain.Task, error) {
 		return nil, fmt.Errorf("invalid task id: %w", err)
 	}
 
-	const query = `
-		SELECT
-			id,
-			title,
-			description,
-			status,
-			week,
-			time_invested,
-			time_registered,
-			observations
-		FROM tasks
-		WHERE id = $1;
-	`
+	query := `SELECT ` + taskSelectColumns + ` FROM tasks WHERE id = $1`
 
 	var task domain.Task
 	var status string
@@ -137,6 +164,7 @@ func (repository *taskRepository) GetByID(id string) (*domain.Task, error) {
 		&status,
 		&task.Week,
 		&task.TimeInvested,
+		&task.AssignmentId,
 		&task.TimeRegistered,
 		&task.Observations,
 	)
@@ -145,6 +173,44 @@ func (repository *taskRepository) GetByID(id string) (*domain.Task, error) {
 			return nil, fmt.Errorf("task with id %d not found", taskID)
 		}
 		return nil, fmt.Errorf("error getting task by id: %w", err)
+	}
+
+	task.Status = domain.Status(status)
+
+	return &task, nil
+}
+
+func (repository *taskRepository) GetByIDForUser(ctx context.Context, id string, userID int64) (*domain.Task, error) {
+	taskID, err := strconv.Atoi(id)
+	if err != nil {
+		return nil, fmt.Errorf("invalid task id: %w", err)
+	}
+
+	query := `
+		SELECT ` + taskSelectColumnsTrim() + `
+		FROM tasks t
+		INNER JOIN assignments a ON a.id = t.assignment_id
+		WHERE t.id = $1 AND a.user_id = $2`
+
+	var task domain.Task
+	var status string
+
+	err = repository.db.QueryRow(ctx, query, taskID, userID).Scan(
+		&task.ID,
+		&task.Title,
+		&task.Description,
+		&status,
+		&task.Week,
+		&task.TimeInvested,
+		&task.AssignmentId,
+		&task.TimeRegistered,
+		&task.Observations,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrTaskNotFound
+		}
+		return nil, fmt.Errorf("error getting task by id for user: %w", err)
 	}
 
 	task.Status = domain.Status(status)
@@ -163,8 +229,7 @@ func (repository *taskRepository) Update(task *domain.Task) error {
 			time_invested = $5,
 			time_registered = $6,
 			observations = $7
-		WHERE id = $8;
-	`
+		WHERE id = $8`
 
 	commandTag, err := repository.db.Exec(
 		context.Background(),
@@ -195,10 +260,7 @@ func (repository *taskRepository) Delete(id string) error {
 		return fmt.Errorf("invalid task id: %w", err)
 	}
 
-	const query = `
-		DELETE FROM tasks
-		WHERE id = $1;
-	`
+	const query = `DELETE FROM tasks WHERE id = $1`
 
 	commandTag, err := repository.db.Exec(context.Background(), query, taskID)
 	if err != nil {
@@ -213,11 +275,7 @@ func (repository *taskRepository) Delete(id string) error {
 }
 
 func (repository *taskRepository) UpdateStatus(task *domain.Task) error {
-	const query = `
-		UPDATE tasks
-		SET status = $1
-		WHERE id = $2;
-	`
+	const query = `UPDATE tasks SET status = $1 WHERE id = $2`
 
 	commandTag, err := repository.db.Exec(
 		context.Background(),
@@ -245,8 +303,7 @@ func (repository *taskRepository) SaveAttachment(attachment *domain.Attachment) 
 			storage_path
 		)
 		VALUES ($1, $2, $3, $4)
-		RETURNING id;
-	`
+		RETURNING id`
 
 	err := repository.db.QueryRow(
 		context.Background(),

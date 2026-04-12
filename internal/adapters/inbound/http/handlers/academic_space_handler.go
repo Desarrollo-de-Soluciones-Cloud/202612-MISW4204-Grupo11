@@ -94,6 +94,15 @@ func (handler *AcademicSpaceHandler) List(ginCtx *gin.Context) {
 	ginCtx.JSON(http.StatusOK, spaces)
 }
 
+func (handler *AcademicSpaceHandler) ListAllForAdmin(ginCtx *gin.Context) {
+	spaces, err := handler.svc.ListAllSpaces(ginCtx.Request.Context())
+	if err != nil {
+		ginCtx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	ginCtx.JSON(http.StatusOK, spaces)
+}
+
 func (handler *AcademicSpaceHandler) Get(ginCtx *gin.Context) {
 	profID, ok := professorIDFromContext(ginCtx)
 	if !ok {

@@ -77,6 +77,30 @@ func (spaceRepo *AcademicSpaceRepo) FindByProfessor(ctx context.Context, profess
 	return result, rows.Err()
 }
 
+func (spaceRepo *AcademicSpaceRepo) ListAll(ctx context.Context) ([]domain.AcademicSpace, error) {
+	const query = `
+		SELECT id, name, type, academic_period_id, professor_id,
+		start_date, end_date, observations, status, created_at, updated_at
+		FROM academic_spaces
+		ORDER BY id ASC`
+
+	rows, err := spaceRepo.pool.inner.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("academic_space ListAll: %w", err)
+	}
+	defer rows.Close()
+
+	var result []domain.AcademicSpace
+	for rows.Next() {
+		space, err := scanSpace(rows)
+		if err != nil {
+			return nil, fmt.Errorf("academic_space scan: %w", err)
+		}
+		result = append(result, *space)
+	}
+	return result, rows.Err()
+}
+
 func (spaceRepo *AcademicSpaceRepo) UpdateStatus(ctx context.Context, id int64, status string) error {
 	const query = `UPDATE academic_spaces SET status = $1, updated_at = NOW() WHERE id = $2`
 	tag, err := spaceRepo.pool.inner.Exec(ctx, query, status, id)

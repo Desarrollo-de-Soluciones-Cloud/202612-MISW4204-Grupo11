@@ -74,6 +74,16 @@ func (assignmentRepo *AssignmentRepo) FindByUser(ctx context.Context, userID int
 	return assignmentRepo.queryMany(ctx, query, userID)
 }
 
+func (assignmentRepo *AssignmentRepo) ListAll(ctx context.Context) ([]domain.Assignment, error) {
+	const query = `
+		SELECT id, user_id, academic_space_id, professor_id,
+		role_in_assignment, contracted_hours_per_week, created_at, updated_at
+		FROM assignments
+		ORDER BY id ASC`
+
+	return assignmentRepo.queryMany(ctx, query)
+}
+
 func (assignmentRepo *AssignmentRepo) FindActiveByUserAndRole(ctx context.Context, userID int64, role string) ([]domain.Assignment, error) {
 	const query = `
 		SELECT assignment.id, assignment.user_id, assignment.academic_space_id, assignment.professor_id,
