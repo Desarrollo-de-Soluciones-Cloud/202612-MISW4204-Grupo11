@@ -67,9 +67,10 @@ func NewEngine(deps Deps) *gin.Engine {
 
 	listAssignments := apiV1.Group("userAssignments")
 	listAssignments.Use(middleware.Autenticar(deps.JWTSecret))
-	listAssignments.Use(middleware.ExigeRol(domain.RolAsistenteGraduado, domain.RolMonitor))
+	listAssignments.Use(middleware.ExigeRol(domain.RolAsistenteGraduado, domain.RolMonitor, domain.RolProfesor))
 	{
 		listAssignments.GET("", deps.Assignments.ListMyAssignments)
+		listAssignments.GET("/profesor", deps.Assignments.ListByProfessor)
 	}
 
 	professors := apiV1.Group("/professors")
