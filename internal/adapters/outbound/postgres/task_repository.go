@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/domain"
 	"github.com/jackc/pgx/v5"
@@ -320,4 +321,16 @@ func (repository *taskRepository) SaveAttachment(attachment *domain.Attachment) 
 	}
 
 	return nil
+}
+
+func (repository *taskRepository) ListByAssignmentAndWeek(ctx context.Context, assignmentID int64, weekStart time.Time) ([]domain.Task, error) {
+	query := `SELECT ` + taskSelectColumns + ` FROM tasks WHERE assignment_id = $1 AND week_start = $2 ORDER BY id`
+
+	rows, err := repository.db.Query(ctx, query, assignmentID, weekStart)
+	if err != nil {
+		return nil, fmt.Errorf("error listing tasks by assignment and week: %w", err)
+	}
+	defer rows.Close()
+
+	return repository.scanTasks(rows)
 }

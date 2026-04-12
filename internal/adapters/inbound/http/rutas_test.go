@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/http/handlers"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application"
@@ -136,6 +137,10 @@ func (f fakeTaskRepo) UpdateStatus(task *domain.Task) error {
 	return nil
 }
 
+func (f fakeTaskRepo) ListByAssignmentAndWeek(_ context.Context, _ int64, _ time.Time) ([]domain.Task, error) {
+	return nil, nil
+}
+
 func (f fakePinger) Ping(_ context.Context) error {
 	return f.err
 }
@@ -167,6 +172,7 @@ func TestNuevoMotor_HealthAndTaskRoutes(t *testing.T) {
 		AcadSpaces:  &handlers.AcademicSpaceHandler{},
 		Periods:     &handlers.AcademicPeriodHandler{},
 		Assignments: &handlers.AssignmentHandler{},
+		Reports:     &handlers.ReportHandler{},
 	}
 	engine := NewEngine(deps)
 
@@ -224,6 +230,7 @@ func TestNuevoMotor_HealthReadyUnavailable(t *testing.T) {
 		AcadSpaces:  &handlers.AcademicSpaceHandler{},
 		Periods:     &handlers.AcademicPeriodHandler{},
 		Assignments: &handlers.AssignmentHandler{},
+		Reports:     &handlers.ReportHandler{},
 	}
 	engine := NewEngine(deps)
 

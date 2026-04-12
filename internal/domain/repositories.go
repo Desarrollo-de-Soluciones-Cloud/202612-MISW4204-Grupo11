@@ -1,6 +1,9 @@
 package domain
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 type AcademicPeriodRepository interface {
 	FindByID(ctx context.Context, id int64) (*AcademicPeriod, error)
@@ -27,4 +30,11 @@ type AssignmentRepository interface {
 	FindByProfessorWithUser(ctx context.Context, professorID int64) ([]AssignmentWithUser, error)
 	ListAll(ctx context.Context) ([]Assignment, error)
 	Update(ctx context.Context, assignment *Assignment) error
+}
+
+type ReportRepository interface {
+	Create(ctx context.Context, report *Report) error
+	FindByID(ctx context.Context, id int64) (*Report, error)
+	FindByProfessorAndWeek(ctx context.Context, professorID int64, weekStart time.Time) ([]Report, error)
+	FindByProfessor(ctx context.Context, professorID int64) ([]Report, error)
 }
