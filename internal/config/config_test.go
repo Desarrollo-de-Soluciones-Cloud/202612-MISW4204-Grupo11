@@ -1,0 +1,47 @@
+package config_test
+
+import (
+	"testing"
+
+	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/config"
+)
+
+func TestLoad_Defaults(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("HTTP_ADDR", "")
+	t.Setenv("OLLAMA_URL", "")
+	t.Setenv("OLLAMA_MODEL", "")
+
+	c, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.HTTPAddr != ":8080" {
+		t.Fatalf("HTTPAddr %q", c.HTTPAddr)
+	}
+	if c.DBURL == "" {
+		t.Fatal("expected default DBURL")
+	}
+	if c.OllamaURL != "http://localhost:11434" || c.OllamaModel != "llama3.2" {
+		t.Fatalf("ollama defaults: %q %q", c.OllamaURL, c.OllamaModel)
+	}
+}
+
+func TestLoad_CustomEnv(t *testing.T) {
+	t.Setenv("JWT_SECRET", "x")
+	t.Setenv("HTTP_ADDR", ":9090")
+	t.Setenv("DATABASE_URL", "postgres://custom")
+	t.Setenv("OLLAMA_URL", "http://ollama:11434")
+	t.Setenv("OLLAMA_MODEL", "mistral")
+
+	c, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.HTTPAddr != ":9090" || c.DBURL != "postgres://custom" {
+		t.Fatalf("%+v", c)
+	}
+	if c.OllamaURL != "http://ollama:11434" || c.OllamaModel != "mistral" {
+		t.Fatalf("ollama %+v", c)
+	}
+}
