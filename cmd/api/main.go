@@ -67,6 +67,7 @@ func main() {
 	taskHandler := handlers.NewTaskHandler(taskService)
 
 	ollamaClient := ollama.NewClient(cfg.OllamaURL, cfg.OllamaModel)
+	ollamaClient.EnsureModel(ctx)
 	pdfGenerator := pdf.NewGenerator("./uploads/reports")
 	reportRepo := postgres.NewReportRepo(pool)
 	reportService := appreports.NewReportService(reportRepo, assignmentRepo, taskRepo, ollamaClient, pdfGenerator)
