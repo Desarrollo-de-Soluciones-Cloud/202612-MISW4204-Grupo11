@@ -1,0 +1,75 @@
+@startuml secuencias-alto-nivel
+!theme plain
+
+title Secuencias — vista de alto nivel (Cliente → API → BD)
+
+' Diagrama compacto. El detalle de servicios y reglas está en diagramadesecuencia.puml.
+' Una sola API y una sola BD para todo el sistema.
+
+actor "Usuario" as U
+actor "Profesor" as P
+actor "Monitor / AG" as M
+actor "Administrador" as A
+participant "Cliente\n(web / app)" as C
+participant "API REST" as API
+database "BD" as DB
+
+== Autenticación y avisos (RF-01, RF-13) ==
+U -> C : credenciales
+C -> API : POST /auth/login\n( + rutas de negocio con JWT )
+API -> DB : leer usuario / sesión
+DB --> API
+API --> C : token + datos
+C --> U : pantalla principal
+note right of API
+  Notificaciones / recordatorios:
+  GET … (cuando exista en API)
+end note
+
+== Profesor — espacios y vinculaciones (RF-03, RF-04, RF-05) ==
+P -> C : alta vinculación / espacio
+C -> API : POST …/spaces, …/assignments\nBearer profesor
+API -> DB : validar y persistir
+DB --> API
+API --> C : 2xx / error negocio
+C --> P : confirmación
+
+== Monitor / AG — tareas semanales (RF-06, RF-08) ==
+M -> C : registrar tarea
+C -> API : POST /tasks\nBearer monitor o asistente
+API -> DB : validar semana / espacio\nINSERT tarea
+DB --> API
+API --> C : 201 + cuerpo
+C --> M : OK
+
+== Profesor — seguimiento (RF-09, RF-10) ==
+P -> C : ver seguimiento por semana
+C -> API : GET seguimiento / agregados\nBearer profesor
+API -> DB : vinculaciones + tareas período
+DB --> API
+API --> C : listado (incl. sin reporte)
+C --> P : vista
+
+== Profesor — reportes semanales con IA (RF-14) ==
+P -> C : ejecutar lote por semana\ny/o descargar PDF
+C -> API : POST …/reportes (generar)\nGET …/reportes/… (descarga)\nBearer profesor
+API -> DB : leer tareas, textos y horas\nde la semana (RF-14.3)\nguardar PDF (RF-14.5)
+DB --> API
+API -> API : IA generativa + PDF\n(RF-14.2, 14.4)\nuno por monitor/AG
+API --> C : PDF almacenado / binario
+note right of API
+  RF-14.1 ejecución manual por lotes;
+  RF-14.7 una semana por reporte;
+  RF-14.6 descarga en cualquier momento
+end note
+C --> P : reportes individuales
+
+== Administrador — plataforma (RF-15, RF-12.3) ==
+A -> C : vista global / ajustes
+C -> API : GET /admin/overview\nGET /admin/tasks …\nPATCH /admin/assignments/…
+API -> DB : lecturas / actualización\nsegún endpoint
+DB --> API
+API --> C : JSON consolidado o confirmación
+C --> A : panel admin
+
+@enduml
