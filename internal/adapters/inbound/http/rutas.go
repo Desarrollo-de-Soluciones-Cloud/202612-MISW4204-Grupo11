@@ -88,14 +88,18 @@ func NewEngine(deps Deps) *gin.Engine {
 		reports.GET("/:id/download", deps.Reports.Download)
 	}
 
-	periods := apiV1.Group("/periods")
-	periods.Use(middleware.Autenticar(deps.JWTSecret))
-	periods.Use(middleware.ExigeRol(domain.RolAdministrador))
+	periodsAdmin := apiV1.Group("/periods")
+	periodsAdmin.Use(middleware.Autenticar(deps.JWTSecret))
+	periodsAdmin.Use(middleware.ExigeRol(domain.RolAdministrador))
 	{
-		periods.POST("", deps.Periods.Create)
-		periods.GET("", deps.Periods.List)
-		periods.PATCH("/:id/close", deps.Periods.Close)
+		periodsAdmin.POST("", deps.Periods.Create)
+		periodsAdmin.PATCH("/:id/close", deps.Periods.Close)
 	}
+
+	periodsRead := apiV1.Group("/periods")
+	periodsRead.Use(middleware.Autenticar(deps.JWTSecret))
+	periodsRead.Use(middleware.ExigeRol(domain.RolAdministrador, domain.RolProfesor))
+	periodsRead.GET("", deps.Periods.List)
 
 	tasks := apiV1.Group("/tasks")
 	tasks.Use(middleware.Autenticar(deps.JWTSecret))
