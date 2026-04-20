@@ -47,7 +47,7 @@ func NewEngine(deps Deps) *gin.Engine {
 
 	adminUsers := apiV1.Group("/users")
 	adminUsers.Use(middleware.Autenticar(deps.JWTSecret))
-	adminUsers.Use(middleware.ExigeRol(domain.RolAdministrador))
+	adminUsers.Use(middleware.ExigeRol(domain.RolAdministrador, domain.RolProfesor))
 	adminUsers.GET("", deps.Users.GetList)
 
 	spaces := apiV1.Group("/spaces")
