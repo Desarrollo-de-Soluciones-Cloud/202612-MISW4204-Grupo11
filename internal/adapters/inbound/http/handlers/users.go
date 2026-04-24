@@ -103,7 +103,16 @@ func (handler *Users) Post(c *gin.Context) {
 }
 
 func (handler *Users) GetList(c *gin.Context) {
-	userList, listErr := handler.Admin.List(c.Request.Context())
+	role := c.Query("role")
+	var (
+		userList []domain.User
+		listErr  error
+	)
+	if role != "" {
+		userList, listErr = handler.Admin.ListByRole(c.Request.Context(), role)
+	} else {
+		userList, listErr = handler.Admin.List(c.Request.Context())
+	}
 	if listErr != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": listErr.Error()})
 		return
