@@ -300,6 +300,24 @@ func (s *TaskService) UploadAttachment(ctx context.Context, taskID string, userI
 	return attachment, nil
 }
 
+func (s *TaskService) ListByAssignment(ctx context.Context, assignmentID int64, userID int64) ([]domain.Task, error) {
+	// Verify the user has access to this assignment
+	assignment, err := s.assignments.FindByID(ctx, assignmentID)
+	if err != nil {
+		return nil, err
+	}
+	if assignment.UserID != userID && assignment.ProfessorID != userID {
+		return nil, domain.ErrAssignmentNotOwned
+	}
+
+	tasks, err := s.repo.ListByAssignment(ctx, assignmentID)
+	if err != nil {
+		return nil, err
+	}
+
+	return tasks, nil
+}
+
 func saveFile(file *multipart.FileHeader, dst string) error {
 	src, err := file.Open()
 	if err != nil {
