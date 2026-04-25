@@ -98,3 +98,7 @@ func (service *AdminService) Create(ctx context.Context, name, email, password s
 func (service *AdminService) List(ctx context.Context) ([]domain.User, error) {
 	return service.Users.ListUsers(ctx)
 }
+
+func (service *AdminService) ListByRole(ctx context.Context, role string) ([]domain.User, error) {
+	return service.Users.ListUsersByRole(ctx, role)
+}
