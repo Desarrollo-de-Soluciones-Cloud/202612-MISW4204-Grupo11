@@ -103,21 +103,8 @@ func (service *AssignmentService) CreateAssignment(ctx context.Context, input Cr
 	}
 
 	listUser = append(listUser, *assignment)
-
-	resultAboveHours := domain.CheckMaxHoursPerRole(listUser)
-	resultNumberOfClases := domain.LimitClasesPerUser(listUser)
-	resultRuleCombined := domain.Validar40PercentOfMonitorHours(listUser)
-
-	if resultNumberOfClases {
-		return nil, fmt.Errorf("El usuario ya tiene mas e 3 monitorias, no se puede agregar otra monitoria mas.")
-	}
-
-	if resultAboveHours {
-		return nil, fmt.Errorf("El usuario ha pasado el limite de horas para su role " + input.RoleInAssignment)
-	}
-
-	if resultRuleCombined {
-		return nil, fmt.Errorf("El no puede asignarse mas horas de monitoria. Si se agrega esta vinculacion, se estaria pasando el limite de 40 porciente de las horas contratadas como " + input.RoleInAssignment)
+	if err := validateAssignmentListRules(listUser, input.RoleInAssignment); err != nil {
+		return nil, err
 	}
 
 	if err := service.assignmentRepo.Create(ctx, assignment); err != nil {
@@ -125,6 +112,19 @@ func (service *AssignmentService) CreateAssignment(ctx context.Context, input Cr
 	}
 
 	return assignment, nil
+}
+
+func validateAssignmentListRules(listUser []domain.Assignment, role string) error {
+	if domain.LimitClasesPerUser(listUser) {
+		return fmt.Errorf("El usuario ya tiene mas e 3 monitorias, no se puede agregar otra monitoria mas.")
+	}
+	if domain.CheckMaxHoursPerRole(listUser) {
+		return fmt.Errorf("El usuario ha pasado el limite de horas para su role " + role)
+	}
+	if domain.Validar40PercentOfMonitorHours(listUser) {
+		return fmt.Errorf("El no puede asignarse mas horas de monitoria. Si se agrega esta vinculacion, se estaria pasando el limite de 40 porciente de las horas contratadas como " + role)
+	}
+	return nil
 }
 
 func (service *AssignmentService) GetAssignment(ctx context.Context, id, professorID int64) (*domain.Assignment, error) {

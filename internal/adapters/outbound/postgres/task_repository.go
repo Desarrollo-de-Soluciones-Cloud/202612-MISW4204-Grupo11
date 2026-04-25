@@ -20,6 +20,11 @@ func NewTaskRepository(db *pgxpool.Pool) *taskRepository {
 	return &taskRepository{db: db}
 }
 
+const (
+	errFmtInvalidTaskID    = "invalid task id: %w"
+	errFmtTaskNotFoundByID = "task with id %d not found"
+)
+
 const taskSelectColumns = `
 	id, title, description, status, week_start, is_late, time_invested, assignment_id, time_registered, observations`
 
@@ -152,7 +157,7 @@ func scanTaskRow(row interface {
 func (repository *taskRepository) GetByID(id string) (*domain.Task, error) {
 	taskID, err := strconv.Atoi(id)
 	if err != nil {
-		return nil, fmt.Errorf("invalid task id: %w", err)
+		return nil, fmt.Errorf(errFmtInvalidTaskID, err)
 	}
 
 	query := `SELECT ` + taskSelectColumns + ` FROM tasks WHERE id = $1`
@@ -174,7 +179,7 @@ func (repository *taskRepository) GetByID(id string) (*domain.Task, error) {
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, fmt.Errorf("task with id %d not found", taskID)
+			return nil, fmt.Errorf(errFmtTaskNotFoundByID, taskID)
 		}
 		return nil, fmt.Errorf("error getting task by id: %w", err)
 	}
@@ -187,7 +192,7 @@ func (repository *taskRepository) GetByID(id string) (*domain.Task, error) {
 func (repository *taskRepository) GetByIDForUser(ctx context.Context, id string, userID int64) (*domain.Task, error) {
 	taskID, err := strconv.Atoi(id)
 	if err != nil {
-		return nil, fmt.Errorf("invalid task id: %w", err)
+		return nil, fmt.Errorf(errFmtInvalidTaskID, err)
 	}
 
 	query := `
@@ -251,7 +256,7 @@ func (repository *taskRepository) Update(task *domain.Task) error {
 	}
 
 	if commandTag.RowsAffected() == 0 {
-		return fmt.Errorf("task with id %d not found", task.ID)
+		return fmt.Errorf(errFmtTaskNotFoundByID, task.ID)
 	}
 
 	return nil
@@ -260,7 +265,7 @@ func (repository *taskRepository) Update(task *domain.Task) error {
 func (repository *taskRepository) Delete(id string) error {
 	taskID, err := strconv.Atoi(id)
 	if err != nil {
-		return fmt.Errorf("invalid task id: %w", err)
+		return fmt.Errorf(errFmtInvalidTaskID, err)
 	}
 
 	const query = `DELETE FROM tasks WHERE id = $1`
@@ -271,7 +276,7 @@ func (repository *taskRepository) Delete(id string) error {
 	}
 
 	if commandTag.RowsAffected() == 0 {
-		return fmt.Errorf("task with id %d not found", taskID)
+		return fmt.Errorf(errFmtTaskNotFoundByID, taskID)
 	}
 
 	return nil
@@ -291,7 +296,7 @@ func (repository *taskRepository) UpdateStatus(task *domain.Task) error {
 	}
 
 	if commandTag.RowsAffected() == 0 {
-		return fmt.Errorf("task with id %d not found", task.ID)
+		return fmt.Errorf(errFmtTaskNotFoundByID, task.ID)
 	}
 
 	return nil
