@@ -9,11 +9,15 @@ import (
 const defaultLocalPostgresURL = "postgres://app:app@127.0.0.1:5432/app?sslmode=disable"
 
 type Config struct {
-	HTTPAddr    string
-	DBURL       string
-	JWTSecret   string
-	OllamaURL   string
-	OllamaModel string
+	HTTPAddr         string
+	DBURL            string
+	JWTSecret        string
+	OllamaURL        string
+	OllamaModel      string
+	BrokerURL        string
+	BrokerExchange   string
+	BrokerQueue      string
+	BrokerRoutingKey string
 }
 
 // Load reads configuration from environment variables.
@@ -34,6 +38,10 @@ func Load() (Config, error) {
 
 	config.OllamaURL = envOrDefault("OLLAMA_URL", "http://localhost:11434")
 	config.OllamaModel = envOrDefault("OLLAMA_MODEL", "llama3.2")
+	config.BrokerURL = envOrDefault("BROKER_URL", "amqp://guest:guest@localhost:5672/")
+	config.BrokerExchange = envOrDefault("BROKER_EXCHANGE", "reports")
+	config.BrokerQueue = envOrDefault("BROKER_QUEUE", "reports.weekly.generate")
+	config.BrokerRoutingKey = envOrDefault("BROKER_ROUTING_KEY", "reports.weekly.generate")
 
 	return config, nil
 }
