@@ -62,15 +62,6 @@ func NewEngine(deps Deps) *gin.Engine {
 		spaces.POST("/:id/assignments", deps.Assignments.Create)
 		spaces.GET("/:id/assignments", deps.Assignments.ListBySpace)
 		spaces.GET("/:id/assignments/:assignmentID", deps.Assignments.Get)
-
-	}
-
-	listAssignments := apiV1.Group("userAssignments")
-	listAssignments.Use(middleware.Autenticar(deps.JWTSecret))
-	listAssignments.Use(middleware.ExigeRol(domain.RolAsistenteGraduado, domain.RolMonitor, domain.RolProfesor))
-	{
-		listAssignments.GET("", deps.Assignments.ListMyAssignments)
-		listAssignments.GET("/profesor", deps.Assignments.ListByProfessor)
 	}
 
 	professors := apiV1.Group("/professors")
@@ -114,8 +105,16 @@ func NewEngine(deps Deps) *gin.Engine {
 	}
 	assignmentsMine := apiV1.Group("/assignments")
 	assignmentsMine.Use(middleware.Autenticar(deps.JWTSecret))
-	assignmentsMine.Use(middleware.ExigeRol(domain.RolMonitor, domain.RolAsistenteGraduado))
+	assignmentsMine.Use(middleware.ExigeRol(domain.RolMonitor, domain.RolAsistenteGraduado, domain.RolAdministrador))
 	assignmentsMine.GET("/me", deps.Assignments.ListMyAssignments)
+
+	listAssignments := apiV1.Group("userAssignments")
+	listAssignments.Use(middleware.Autenticar(deps.JWTSecret))
+	listAssignments.Use(middleware.ExigeRol(domain.RolAsistenteGraduado, domain.RolMonitor, domain.RolProfesor))
+	{
+		listAssignments.GET("", deps.Assignments.ListMyAssignments)
+		listAssignments.GET("/profesor", deps.Assignments.ListByProfessor)
+	}
 
 	adminTasks := apiV1.Group("/admin/tasks")
 	adminTasks.Use(middleware.Autenticar(deps.JWTSecret))
@@ -135,6 +134,7 @@ func NewEngine(deps Deps) *gin.Engine {
 	adminAssignments.Use(middleware.ExigeRol(domain.RolAdministrador))
 	{
 		adminAssignments.GET("", deps.Assignments.ListAllForAdmin)
+		adminAssignments.GET("/tasks", deps.TaskHandler.GetAllTasks)
 		adminAssignments.PATCH("/:assignmentID", deps.Assignments.UpdateByAdmin)
 	}
 

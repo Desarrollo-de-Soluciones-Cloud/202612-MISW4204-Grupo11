@@ -256,6 +256,17 @@ func (h *TaskHandler) Delete(c *gin.Context) {
 	})
 }
 
+func (h *TaskHandler) GetAllTasks(c *gin.Context) {
+
+	tasks, err := h.service.ListAllForAdmin(c.Request.Context())
+	if err != nil {
+		taskMutateError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, tasks)
+}
+
 func (h *TaskHandler) UploadAttachment(c *gin.Context) {
 	userID, ok := professorIDFromContext(c)
 	if !ok {
