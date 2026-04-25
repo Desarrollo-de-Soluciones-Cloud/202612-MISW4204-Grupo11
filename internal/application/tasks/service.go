@@ -22,6 +22,16 @@ type TaskService struct {
 	NowFunc     func() time.Time
 }
 
+const (
+	ErrMaxTimeInvestedPerTask    = "no se pueden registrar más de 22 horas en una sola tarea"
+	ErrTitleRequired             = "title is required"
+	ErrDescriptionRequired       = "description is required"
+	ErrStatusRequired            = "status is required"
+	ErrAssignmentIDRequired      = "assignment_id is required"
+	ErrTimeInvestedMustBeGreater = "time invested must be greater than 0"
+	ErrInvalidTaskID             = "invalid task id"
+)
+
 type UpdateTaskInput struct {
 	Title        *string
 	Description  *string
@@ -44,15 +54,15 @@ func (s *TaskService) isCurrentWeek(weekStart time.Time) bool {
 
 func (s *TaskService) Create(ctx context.Context, task *domain.Task, currentUserID int64) error {
 	if strings.TrimSpace(task.Title) == "" {
-		return fmt.Errorf("title is required")
+		return fmt.Errorf(ErrTitleRequired)
 	}
 
 	if strings.TrimSpace(task.Description) == "" {
-		return fmt.Errorf("description is required")
+		return fmt.Errorf(ErrDescriptionRequired)
 	}
 
 	if strings.TrimSpace(string(task.Status)) == "" {
-		return fmt.Errorf("status is required")
+		return fmt.Errorf(ErrStatusRequired)
 	}
 
 	if err := domain.ValidateWeekStart(task.WeekStart); err != nil {
@@ -69,11 +79,11 @@ func (s *TaskService) Create(ctx context.Context, task *domain.Task, currentUser
 	}
 
 	if task.TimeInvested <= 0 {
-		return fmt.Errorf("time invested must be greater than 0")
+		return fmt.Errorf(ErrTimeInvestedMustBeGreater)
 	}
 
 	if task.AssignmentId <= 0 {
-		return fmt.Errorf("assignment_id is required")
+		return fmt.Errorf(ErrAssignmentIDRequired)
 	}
 
 	assignment, err := s.assignments.FindByID(ctx, int64(task.AssignmentId))
@@ -85,7 +95,7 @@ func (s *TaskService) Create(ctx context.Context, task *domain.Task, currentUser
 	}
 
 	if task.TimeInvested > 22 {
-		return fmt.Errorf("no se pueden registrar más de 22 horas en una sola tarea")
+		return fmt.Errorf(ErrMaxTimeInvestedPerTask)
 	}
 
 	if task.TimeRegistered.IsZero() {
@@ -130,7 +140,7 @@ func (s *TaskService) Delete(ctx context.Context, taskID string, userID int64) e
 
 func (s *TaskService) Update(ctx context.Context, task *domain.Task, userID int64) error {
 	if task.ID <= 0 {
-		return fmt.Errorf("invalid task id")
+		return fmt.Errorf(ErrInvalidTaskID)
 	}
 
 	existingTask, err := s.repo.GetByIDForUser(ctx, strconv.Itoa(task.ID), userID)
@@ -147,23 +157,23 @@ func (s *TaskService) Update(ctx context.Context, task *domain.Task, userID int6
 	}
 
 	if strings.TrimSpace(task.Title) == "" {
-		return fmt.Errorf("title is required")
+		return fmt.Errorf(ErrTitleRequired)
 	}
 
 	if strings.TrimSpace(task.Description) == "" {
-		return fmt.Errorf("description is required")
+		return fmt.Errorf(ErrDescriptionRequired)
 	}
 
 	if strings.TrimSpace(string(task.Status)) == "" {
-		return fmt.Errorf("status is required")
+		return fmt.Errorf(ErrStatusRequired)
 	}
 
 	if task.TimeInvested <= 0 {
-		return fmt.Errorf("time invested must be greater than 0")
+		return fmt.Errorf(ErrTimeInvestedMustBeGreater)
 	}
 
 	if task.TimeInvested > 22 {
-		return fmt.Errorf("no se pueden registrar más de 22 horas en una sola tarea")
+		return fmt.Errorf(ErrMaxTimeInvestedPerTask)
 	}
 
 	task.TimeRegistered = existingTask.TimeRegistered
@@ -204,19 +214,19 @@ func (s *TaskService) PartialUpdate(ctx context.Context, id string, userID int64
 	}
 
 	if strings.TrimSpace(task.Title) == "" {
-		return nil, fmt.Errorf("title is required")
+		return nil, fmt.Errorf(ErrTitleRequired)
 	}
 	if strings.TrimSpace(task.Description) == "" {
-		return nil, fmt.Errorf("description is required")
+		return nil, fmt.Errorf(ErrDescriptionRequired)
 	}
 	if strings.TrimSpace(string(task.Status)) == "" {
-		return nil, fmt.Errorf("status is required")
+		return nil, fmt.Errorf(ErrStatusRequired)
 	}
 	if task.TimeInvested <= 0 {
-		return nil, fmt.Errorf("time invested must be greater than 0")
+		return nil, fmt.Errorf(ErrTimeInvestedMustBeGreater)
 	}
 	if task.TimeInvested > 22 {
-		return nil, fmt.Errorf("no se pueden registrar más de 22 horas en una sola tarea")
+		return nil, fmt.Errorf(ErrMaxTimeInvestedPerTask)
 	}
 
 	if err := s.repo.Update(task); err != nil {
@@ -228,7 +238,7 @@ func (s *TaskService) PartialUpdate(ctx context.Context, id string, userID int64
 
 func (s *TaskService) UpdateStatus(ctx context.Context, task *domain.Task, userID int64) error {
 	if task.ID <= 0 {
-		return fmt.Errorf("invalid task id")
+		return fmt.Errorf(ErrInvalidTaskID)
 	}
 
 	existingTask, err := s.repo.GetByIDForUser(ctx, strconv.Itoa(task.ID), userID)
@@ -245,7 +255,7 @@ func (s *TaskService) UpdateStatus(ctx context.Context, task *domain.Task, userI
 	}
 
 	if strings.TrimSpace(string(task.Status)) == "" {
-		return fmt.Errorf("status is required")
+		return fmt.Errorf(ErrStatusRequired)
 	}
 
 	existingTask.Status = task.Status

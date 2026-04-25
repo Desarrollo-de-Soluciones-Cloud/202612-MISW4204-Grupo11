@@ -18,8 +18,8 @@ Este repositorio es el espacio de trabajo del **Grupo 11** para el proyecto del 
 ## Backend (Go, arquitectura hexagonal)
 
 - **`cmd/api`:** arranque del programa (config, Postgres, Gin).
-- **`internal/domain`:** reglas y modelos de negocio (aquí irá el corazón del sistema).
-- **`internal/application`:** lógica que orquesta el dominio (ahora solo `Readiness` para comprobar la DB).
+- **`internal/domain`:** reglas y modelos de negocio.
+- **`internal/application`:** lógica que orquesta el dominio.
 - **`internal/adapters/inbound/http`:** rutas HTTP (Gin).
 - **`internal/adapters/outbound/postgres`:** conexión real a PostgreSQL.
 
@@ -56,7 +56,7 @@ Este repositorio es el espacio de trabajo del **Grupo 11** para el proyecto del 
 
    Después puedes hacer `POST /api/v1/auth/login` y usar el token para crear más usuarios o listar con `GET /api/v1/users`.
 
-5. **Autenticación y usuarios 
+5. **Autenticación y usuarios**
    - `POST /api/v1/auth/login` — body: `email`, `password` → `token` + `user`.  
    - `POST /api/v1/users` — si ya hay usuarios: `Authorization: Bearer <token>` de un **administrador**; si no hay ningún usuario: sin token, pero `roles` debe incluir `administrador`.  
    - `GET /api/v1/users` — siempre token de administrador.
@@ -89,4 +89,12 @@ Mismas rutas: `GET /health` y `GET /health/ready`.
 
 Variables: [.env.example](.env.example).
 
+#### Primera vez (o base vacía): crear el administrador antes que el resto
 
+Tras un arranque con **Postgres sin datos** (por ejemplo la primera vez, o si corriste `docker compose down -v` y se borraron los volúmenes), la tabla `users` está vacía. En ese estado **no hay login** ni token hasta que exista al menos un usuario.
+
+1. **Crear primero un usuario administrador** — `POST /api/v1/users` **sin** cabecera `Authorization`. El cuerpo JSON **debe** incluir el rol `administrador` y una contraseña de **al menos 8 caracteres** (mismo ejemplo que en el paso 4 de “Cómo correrlo localmente”).
+2. **Iniciar sesión** — `POST /api/v1/auth/login` con el correo y la contraseña de ese admin; guardá el `token`.
+3. **Recién ahí** — con `Authorization: Bearer <token>` del administrador podés crear profesores, monitores y asistentes (`POST /api/v1/users`), abrir períodos académicos, etc.
+
+Hasta que exista ese administrador no hay credenciales válidas para `login`; si el primer `POST /users` no trae rol `administrador`, la API responde **400**. Cuando ya hay usuarios, `POST /users` sin token de admin responde **401/403**.
