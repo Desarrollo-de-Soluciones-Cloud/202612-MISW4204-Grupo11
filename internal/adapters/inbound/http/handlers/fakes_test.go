@@ -677,6 +677,17 @@ func (h *handlerUserRepo) ListUsers(_ context.Context) ([]domain.User, error) {
 	return out, nil
 }
 
+func (h *handlerUserRepo) ListUsersByRole(_ context.Context, _ string) ([]domain.User, error) {
+	if h.listErr != nil {
+		return nil, h.listErr
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	out := make([]domain.User, len(h.users))
+	copy(out, h.users)
+	return out, nil
+}
+
 func (h *handlerUserRepo) EmailExists(_ context.Context, email string) (bool, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -707,6 +718,9 @@ func (s *overviewUserStub) CreateUser(_ context.Context, _, _, _ string, _ []str
 	return 0, nil
 }
 func (s *overviewUserStub) ListUsers(_ context.Context) ([]domain.User, error) {
+	return s.users, s.err
+}
+func (s *overviewUserStub) ListUsersByRole(_ context.Context, _ string) ([]domain.User, error) {
 	return s.users, s.err
 }
 func (s *overviewUserStub) EmailExists(_ context.Context, _ string) (bool, error) { return false, nil }

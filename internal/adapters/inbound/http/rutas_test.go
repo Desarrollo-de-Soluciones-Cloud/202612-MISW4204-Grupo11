@@ -61,6 +61,9 @@ func (stubUserRepoForRoutes) CreateUser(_ context.Context, _, _, _ string, _ []s
 func (stubUserRepoForRoutes) ListUsers(_ context.Context) ([]domain.User, error) {
 	return nil, nil
 }
+func (stubUserRepoForRoutes) ListUsersByRole(_ context.Context, _ string) ([]domain.User, error) {
+	return nil, nil
+}
 func (stubUserRepoForRoutes) EmailExists(_ context.Context, _ string) (bool, error) {
 	return false, nil
 }

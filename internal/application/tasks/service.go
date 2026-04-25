@@ -38,6 +38,10 @@ func (s *TaskService) currentWeekStart() time.Time {
 	return domain.WeekStartFor(s.NowFunc())
 }
 
+func (s *TaskService) isCurrentWeek(weekStart time.Time) bool {
+	return weekStart.Equal(s.currentWeekStart())
+}
+
 func (s *TaskService) Create(ctx context.Context, task *domain.Task, currentUserID int64) error {
 	if strings.TrimSpace(task.Title) == "" {
 		return fmt.Errorf("title is required")
@@ -117,7 +121,7 @@ func (s *TaskService) Delete(ctx context.Context, taskID string, userID int64) e
 		return domain.ErrReporteTardioNoEliminable
 	}
 
-	if !task.BelongsToCurrentWeek() {
+	if !s.isCurrentWeek(task.WeekStart) {
 		return domain.ErrEliminacionFueraDeSemana
 	}
 
@@ -138,7 +142,7 @@ func (s *TaskService) Update(ctx context.Context, task *domain.Task, userID int6
 		return domain.ErrReporteTardioInmutable
 	}
 
-	if !existingTask.BelongsToCurrentWeek() {
+	if !s.isCurrentWeek(existingTask.WeekStart) {
 		return domain.ErrModificacionFueraDeSemana
 	}
 
@@ -179,7 +183,7 @@ func (s *TaskService) PartialUpdate(ctx context.Context, id string, userID int64
 		return nil, domain.ErrReporteTardioInmutable
 	}
 
-	if !task.BelongsToCurrentWeek() {
+	if !s.isCurrentWeek(task.WeekStart) {
 		return nil, domain.ErrModificacionFueraDeSemana
 	}
 
@@ -236,7 +240,7 @@ func (s *TaskService) UpdateStatus(ctx context.Context, task *domain.Task, userI
 		return domain.ErrReporteTardioInmutable
 	}
 
-	if !existingTask.BelongsToCurrentWeek() {
+	if !s.isCurrentWeek(existingTask.WeekStart) {
 		return domain.ErrModificacionFueraDeSemana
 	}
 
