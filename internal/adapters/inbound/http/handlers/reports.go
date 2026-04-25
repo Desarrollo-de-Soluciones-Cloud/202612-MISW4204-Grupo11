@@ -11,11 +11,16 @@ import (
 )
 
 type ReportHandler struct {
-	service *appreports.ReportService
+	service   *appreports.ReportService
+	submitter appreports.WeeklyReportSubmitter
 }
 
-func NewReportHandler(service *appreports.ReportService) *ReportHandler {
-	return &ReportHandler{service: service}
+func NewReportHandler(service *appreports.ReportService, submitter ...appreports.WeeklyReportSubmitter) *ReportHandler {
+	var configuredSubmitter appreports.WeeklyReportSubmitter
+	if len(submitter) > 0 {
+		configuredSubmitter = submitter[0]
+	}
+	return &ReportHandler{service: service, submitter: configuredSubmitter}
 }
 
 type generateReportRequest struct {
@@ -41,17 +46,30 @@ func (h *ReportHandler) GenerateWeekly(c *gin.Context) {
 		return
 	}
 
-	reports, err := h.service.GenerateWeeklyReports(c.Request.Context(), professorID, weekStart)
+	if h.submitter == nil {
+		reports, err := h.service.GenerateWeeklyReports(c.Request.Context(), professorID, weekStart)
+		if err != nil {
+			reportError(c, err)
+			return
+		}
+		if reports == nil {
+			reports = []domain.Report{}
+		}
+		c.JSON(http.StatusCreated, reports)
+		return
+	}
+
+	job, err := h.submitter.SubmitWeeklyReportJob(c.Request.Context(), professorID, weekStart)
 	if err != nil {
 		reportError(c, err)
 		return
 	}
 
-	if reports == nil {
-		reports = []domain.Report{}
-	}
-
-	c.JSON(http.StatusCreated, reports)
+	c.JSON(http.StatusAccepted, gin.H{
+		"request_id": job.RequestID,
+		"status":     "queued",
+		"message":    "Generación de reportes encolada",
+	})
 }
 
 func (h *ReportHandler) List(c *gin.Context) {
