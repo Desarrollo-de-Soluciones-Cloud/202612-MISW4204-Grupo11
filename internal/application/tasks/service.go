@@ -19,6 +19,7 @@ import (
 type TaskService struct {
 	repo        ports.TaskRepository
 	assignments domain.AssignmentRepository
+	storage     ports.FileStorage
 	NowFunc     func() time.Time
 }
 
@@ -42,6 +43,11 @@ type UpdateTaskInput struct {
 
 func NewTaskService(repo ports.TaskRepository, assignments domain.AssignmentRepository) *TaskService {
 	return &TaskService{repo: repo, assignments: assignments, NowFunc: time.Now}
+}
+
+func (s *TaskService) WithFileStorage(storage ports.FileStorage) *TaskService {
+	s.storage = storage
+	return s
 }
 
 func (s *TaskService) currentWeekStart() time.Time {
@@ -278,19 +284,37 @@ func (s *TaskService) UploadAttachment(ctx context.Context, taskID string, userI
 	}
 
 	uniqueName := fmt.Sprintf("%d_%s", s.NowFunc().UnixNano(), file.Filename)
-	filePath := filepath.Join("./uploads", uniqueName)
-
-	if err := saveFile(file, filePath); err != nil {
-		return nil, fmt.Errorf("could not save file: %w", err)
+	contentType := file.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "application/octet-stream"
 	}
 
-	contentType := file.Header.Get("Content-Type")
+	src, err := file.Open()
+	if err != nil {
+		return nil, fmt.Errorf("could not open file: %w", err)
+	}
+	defer src.Close()
+
+	storagePath := filepath.ToSlash(filepath.Join("attachments", uniqueName))
+	if s.storage != nil {
+		stored, err := s.storage.Save(ctx, storagePath, contentType, src)
+		if err != nil {
+			return nil, fmt.Errorf("could not save file in storage: %w", err)
+		}
+		storagePath = stored.Path
+	} else {
+		filePath := filepath.Join("./uploads", uniqueName)
+		if err := saveFileFallback(src, filePath); err != nil {
+			return nil, fmt.Errorf("could not save file: %w", err)
+		}
+		storagePath = filePath
+	}
 
 	attachment := &domain.Attachment{
 		TaskID:      taskIDInt,
 		FileName:    file.Filename,
 		ContentType: contentType,
-		StoragePath: filePath,
+		StoragePath: storagePath,
 	}
 
 	if err := s.repo.SaveAttachment(attachment); err != nil {
@@ -318,13 +342,7 @@ func (s *TaskService) ListByAssignment(ctx context.Context, assignmentID int64, 
 	return tasks, nil
 }
 
-func saveFile(file *multipart.FileHeader, dst string) error {
-	src, err := file.Open()
-	if err != nil {
-		return err
-	}
-	defer src.Close()
-
+func saveFileFallback(src multipart.File, dst string) error {
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
 	}

@@ -15,6 +15,10 @@ func TestLoad_Defaults(t *testing.T) {
 	t.Setenv("BROKER_EXCHANGE", "")
 	t.Setenv("BROKER_QUEUE", "")
 	t.Setenv("BROKER_ROUTING_KEY", "")
+	t.Setenv("STORAGE_PROVIDER", "")
+	t.Setenv("STORAGE_LOCAL_DIR", "")
+	t.Setenv("GCS_BUCKET", "")
+	t.Setenv("GCS_REPORTS_PREFIX", "")
 
 	c, err := config.Load()
 	if err != nil {
@@ -32,6 +36,9 @@ func TestLoad_Defaults(t *testing.T) {
 	if c.BrokerURL == "" || c.BrokerExchange == "" || c.BrokerQueue == "" || c.BrokerRoutingKey == "" {
 		t.Fatalf("broker defaults: %+v", c)
 	}
+	if c.StorageProvider != "local" || c.StorageLocalDir == "" || c.GCSReportsPrefix == "" {
+		t.Fatalf("storage defaults: %+v", c)
+	}
 }
 
 func TestLoad_CustomEnv(t *testing.T) {
@@ -44,6 +51,10 @@ func TestLoad_CustomEnv(t *testing.T) {
 	t.Setenv("BROKER_EXCHANGE", "reports.ex")
 	t.Setenv("BROKER_QUEUE", "reports.q")
 	t.Setenv("BROKER_ROUTING_KEY", "reports.weekly")
+	t.Setenv("STORAGE_PROVIDER", "gcs")
+	t.Setenv("STORAGE_LOCAL_DIR", "/tmp/uploads")
+	t.Setenv("GCS_BUCKET", "bucket-test")
+	t.Setenv("GCS_REPORTS_PREFIX", "reports-prod")
 
 	c, err := config.Load()
 	if err != nil {
@@ -60,5 +71,11 @@ func TestLoad_CustomEnv(t *testing.T) {
 		c.BrokerQueue != "reports.q" ||
 		c.BrokerRoutingKey != "reports.weekly" {
 		t.Fatalf("broker %+v", c)
+	}
+	if c.StorageProvider != "gcs" ||
+		c.StorageLocalDir != "/tmp/uploads" ||
+		c.GCSBucket != "bucket-test" ||
+		c.GCSReportsPrefix != "reports-prod" {
+		t.Fatalf("storage %+v", c)
 	}
 }

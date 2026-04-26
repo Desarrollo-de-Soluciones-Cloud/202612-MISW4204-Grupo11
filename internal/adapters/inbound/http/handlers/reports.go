@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/ports"
 	appreports "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/reports"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/domain"
 	"github.com/gin-gonic/gin"
@@ -13,6 +14,7 @@ import (
 type ReportHandler struct {
 	service   *appreports.ReportService
 	submitter appreports.WeeklyReportSubmitter
+	storage   ports.FileStorage
 }
 
 func NewReportHandler(service *appreports.ReportService, submitter ...appreports.WeeklyReportSubmitter) *ReportHandler {
@@ -21,6 +23,11 @@ func NewReportHandler(service *appreports.ReportService, submitter ...appreports
 		configuredSubmitter = submitter[0]
 	}
 	return &ReportHandler{service: service, submitter: configuredSubmitter}
+}
+
+func (h *ReportHandler) WithStorage(storage ports.FileStorage) *ReportHandler {
+	h.storage = storage
+	return h
 }
 
 type generateReportRequest struct {
@@ -121,6 +128,21 @@ func (h *ReportHandler) Download(c *gin.Context) {
 	filePath, err := h.service.GetReportFile(c.Request.Context(), reportID, professorID)
 	if err != nil {
 		reportError(c, err)
+		return
+	}
+
+	if h.storage != nil {
+		reader, contentType, err := h.storage.Open(c.Request.Context(), filePath)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		defer reader.Close()
+
+		if contentType == "" {
+			contentType = "application/pdf"
+		}
+		c.DataFromReader(http.StatusOK, -1, contentType, reader, nil)
 		return
 	}
 
