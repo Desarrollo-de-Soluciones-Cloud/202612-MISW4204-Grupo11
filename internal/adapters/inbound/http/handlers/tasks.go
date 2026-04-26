@@ -291,6 +291,32 @@ func (h *TaskHandler) UploadAttachment(c *gin.Context) {
 	c.JSON(http.StatusCreated, attachment)
 }
 
+func (h *TaskHandler) GetAttachments(c *gin.Context) {
+	taskIDParam := c.Param("id")
+
+	taskID, err := strconv.Atoi(taskIDParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "El id de la tarea debe ser un número válido",
+		})
+		return
+	}
+
+	attachments, err := h.service.GetAttachments(c.Request.Context(), taskID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error":   "No se pudieron obtener los archivos de la tarea",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"task_id":     taskID,
+		"attachments": attachments,
+	})
+}
+
 func taskReadError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, domain.ErrTaskNotFound):

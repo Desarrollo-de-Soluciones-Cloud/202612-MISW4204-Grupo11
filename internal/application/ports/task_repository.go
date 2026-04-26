@@ -18,5 +18,6 @@ type TaskRepository interface {
 	Delete(id string) error
 	SaveAttachment(attachment *domain.Attachment) error
 	UpdateStatus(task *domain.Task) error
+	GetAttachments(ctx context.Context, taskID int) ([]domain.Attachment, error)
 	ListByAssignmentAndWeek(ctx context.Context, assignmentID int64, weekStart time.Time) ([]domain.Task, error)
 }

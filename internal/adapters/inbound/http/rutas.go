@@ -25,6 +25,7 @@ type Deps struct {
 
 func NewEngine(deps Deps) *gin.Engine {
 	router := gin.Default()
+	router.Static("/uploads", "./Uploads")
 
 	router.GET("/health", func(ginCtx *gin.Context) {
 		ginCtx.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -101,6 +102,7 @@ func NewEngine(deps Deps) *gin.Engine {
 		attachmentRoutes := tasks.Group("/:id/attachments")
 		{
 			attachmentRoutes.POST("", deps.TaskHandler.UploadAttachment)
+			attachmentRoutes.GET("", deps.TaskHandler.GetAttachments)
 		}
 	}
 	assignmentsMine := apiV1.Group("/assignments")

@@ -286,6 +286,21 @@ func (s *TaskService) UploadAttachment(ctx context.Context, taskID string, userI
 	return attachment, nil
 }
 
+func (s *TaskService) GetAttachments(ctx context.Context, taskID int) ([]domain.Attachment, error) {
+	taskIDStr := strconv.Itoa(taskID)
+	_, err := s.repo.GetByID(taskIDStr)
+	if err != nil {
+		return nil, err
+	}
+
+	attachments, err := s.repo.GetAttachments(ctx, taskID)
+	if err != nil {
+		return nil, err
+	}
+
+	return attachments, nil
+}
+
 func saveFile(file *multipart.FileHeader, dst string) error {
 	src, err := file.Open()
 	if err != nil {

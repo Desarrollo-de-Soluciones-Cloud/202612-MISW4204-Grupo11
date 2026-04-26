@@ -323,6 +323,46 @@ func (repository *taskRepository) SaveAttachment(attachment *domain.Attachment) 
 	return nil
 }
 
+func (r *taskRepository) GetAttachments(ctx context.Context, taskID int) ([]domain.Attachment, error) {
+	query := `
+		SELECT id, task_id, file_name, content_type, storage_path
+		FROM attachments
+		WHERE task_id = $1
+		ORDER BY file_name DESC
+	`
+
+	rows, err := r.db.Query(ctx, query, taskID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	attachments := make([]domain.Attachment, 0)
+
+	for rows.Next() {
+		var attachment domain.Attachment
+
+		err := rows.Scan(
+			&attachment.ID,
+			&attachment.TaskID,
+			&attachment.FileName,
+			&attachment.StoragePath,
+			&attachment.ContentType,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		attachments = append(attachments, attachment)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return attachments, nil
+}
+
 func (repository *taskRepository) ListByAssignmentAndWeek(ctx context.Context, assignmentID int64, weekStart time.Time) ([]domain.Task, error) {
 	query := `SELECT ` + taskSelectColumns + ` FROM tasks WHERE assignment_id = $1 AND week_start = $2 ORDER BY id`
 
