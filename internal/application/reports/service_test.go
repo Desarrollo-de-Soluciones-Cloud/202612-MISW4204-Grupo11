@@ -63,7 +63,7 @@ type fakeAssignmentRepo struct {
 	byProfessor map[int64][]domain.AssignmentWithUser
 }
 
-func (f *fakeAssignmentRepo) Create(_ context.Context, _ *domain.Assignment) error   { return nil }
+func (f *fakeAssignmentRepo) Create(_ context.Context, _ *domain.Assignment) error { return nil }
 func (f *fakeAssignmentRepo) FindByID(_ context.Context, _ int64) (*domain.Assignment, error) {
 	return nil, nil
 }
@@ -89,26 +89,38 @@ type fakeTaskRepo struct {
 	byAssignmentWeek map[string][]domain.Task
 }
 
-func (f *fakeTaskRepo) Create(_ *domain.Task) error                            { return nil }
-func (f *fakeTaskRepo) ListAll(_ context.Context) ([]domain.Task, error)       { return nil, nil }
+func (f *fakeTaskRepo) Create(_ *domain.Task) error                      { return nil }
+func (f *fakeTaskRepo) ListAll(_ context.Context) ([]domain.Task, error) { return nil, nil }
 func (f *fakeTaskRepo) ListByUser(_ context.Context, _ int64) ([]domain.Task, error) {
 	return nil, nil
 }
 func (f *fakeTaskRepo) ListByProfessorID(_ context.Context, _ int64) ([]domain.Task, error) {
 	return nil, nil
 }
-func (f *fakeTaskRepo) GetByID(_ string) (*domain.Task, error)           { return nil, nil }
+func (f *fakeTaskRepo) GetByID(_ string) (*domain.Task, error) { return nil, nil }
 func (f *fakeTaskRepo) GetByIDForUser(_ context.Context, _ string, _ int64) (*domain.Task, error) {
 	return nil, nil
 }
-func (f *fakeTaskRepo) Update(_ *domain.Task) error                      { return nil }
-func (f *fakeTaskRepo) Delete(_ string) error                            { return nil }
-func (f *fakeTaskRepo) SaveAttachment(_ *domain.Attachment) error        { return nil }
-func (f *fakeTaskRepo) UpdateStatus(_ *domain.Task) error                { return nil }
+func (f *fakeTaskRepo) Update(_ *domain.Task) error               { return nil }
+func (f *fakeTaskRepo) Delete(_ string) error                     { return nil }
+func (f *fakeTaskRepo) SaveAttachment(_ *domain.Attachment) error { return nil }
+func (f *fakeTaskRepo) UpdateStatus(_ *domain.Task) error         { return nil }
 
 func (f *fakeTaskRepo) ListByAssignmentAndWeek(_ context.Context, assignmentID int64, weekStart time.Time) ([]domain.Task, error) {
 	key := taskKey(assignmentID, weekStart)
 	return f.byAssignmentWeek[key], nil
+}
+
+func (f *fakeTaskRepo) ListByAssignment(_ context.Context, assignmentID int64) ([]domain.Task, error) {
+	var result []domain.Task
+	for _, tasks := range f.byAssignmentWeek {
+		for _, task := range tasks {
+			if task.AssignmentId == int(assignmentID) {
+				result = append(result, task)
+			}
+		}
+	}
+	return result, nil
 }
 
 func taskKey(assignmentID int64, weekStart time.Time) string {

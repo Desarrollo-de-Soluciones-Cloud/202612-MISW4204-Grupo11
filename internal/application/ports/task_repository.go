@@ -20,4 +20,5 @@ type TaskRepository interface {
 	UpdateStatus(task *domain.Task) error
 	GetAttachments(ctx context.Context, taskID int) ([]domain.Attachment, error)
 	ListByAssignmentAndWeek(ctx context.Context, assignmentID int64, weekStart time.Time) ([]domain.Task, error)
+	ListByAssignment(ctx context.Context, assignmentID int64) ([]domain.Task, error)
 }

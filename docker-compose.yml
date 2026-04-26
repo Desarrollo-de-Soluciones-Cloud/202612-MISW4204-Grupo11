@@ -16,13 +16,24 @@ services:
       retries: 5
 
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.3.14
     ports:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
     healthcheck:
       test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -35,6 +46,13 @@ services:
       JWT_SECRET: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.KMUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30"
       OLLAMA_URL: http://ollama:11434
       OLLAMA_MODEL: llama3.2
+      BROKER_URL: amqp://guest:guest@rabbitmq:5672/
+      BROKER_EXCHANGE: reports
+      BROKER_QUEUE: reports.weekly.generate
+      BROKER_ROUTING_KEY: reports.weekly.generate
+      STORAGE_PROVIDER: local
+      STORAGE_LOCAL_DIR: ./uploads
+      GCS_REPORTS_PREFIX: reports
     ports:
       - "8080:8080"
     volumes:
@@ -43,6 +61,8 @@ services:
       postgres:
         condition: service_healthy
       ollama:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
 volumes:

@@ -106,6 +106,28 @@ func (h *TaskHandler) ListForProfessor(c *gin.Context) {
 	c.JSON(http.StatusOK, tasks)
 }
 
+func (h *TaskHandler) ListByAssignment(c *gin.Context) {
+	userID, ok := professorIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": errNoAuth})
+		return
+	}
+
+	assignmentID, err := parseID(c, "assignmentID")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "assignment ID inválido"})
+		return
+	}
+
+	tasks, err := h.service.ListByAssignment(c.Request.Context(), assignmentID, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, tasks)
+}
+
 func (h *TaskHandler) AdminList(c *gin.Context) {
 	tasks, err := h.service.ListAllForAdmin(c.Request.Context())
 	if err != nil {
