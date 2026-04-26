@@ -144,6 +144,10 @@ func (f fakeTaskRepo) ListByAssignmentAndWeek(_ context.Context, _ int64, _ time
 	return nil, nil
 }
 
+func (f fakeTaskRepo) ListByAssignment(_ context.Context, _ int64) ([]domain.Task, error) {
+	return nil, nil
+}
+
 func (f fakePinger) Ping(_ context.Context) error {
 	return f.err
 }

@@ -339,3 +339,15 @@ func (repository *taskRepository) ListByAssignmentAndWeek(ctx context.Context, a
 
 	return repository.scanTasks(rows)
 }
+
+func (repository *taskRepository) ListByAssignment(ctx context.Context, assignmentID int64) ([]domain.Task, error) {
+	query := `SELECT ` + taskSelectColumns + ` FROM tasks WHERE assignment_id = $1 ORDER BY id`
+
+	rows, err := repository.db.Query(ctx, query, assignmentID)
+	if err != nil {
+		return nil, fmt.Errorf("error listing tasks by assignment: %w", err)
+	}
+	defer rows.Close()
+
+	return repository.scanTasks(rows)
+}

@@ -69,6 +69,7 @@ func NewEngine(deps Deps) *gin.Engine {
 	professors.Use(middleware.ExigeRol(domain.RolProfesor))
 	professors.GET("/me/assignments", deps.Assignments.ListByProfessor)
 	professors.GET("/me/tasks", deps.TaskHandler.ListForProfessor)
+	professors.GET("/assignments/:assignmentID/tasks", deps.TaskHandler.ListByAssignment)
 
 	reports := apiV1.Group("/reports")
 	reports.Use(middleware.Autenticar(deps.JWTSecret))

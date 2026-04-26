@@ -492,6 +492,16 @@ func (repo *handlerTaskRepo) ListByAssignmentAndWeek(_ context.Context, _ int64,
 	return nil, nil
 }
 
+func (repo *handlerTaskRepo) ListByAssignment(_ context.Context, assignmentID int64) ([]domain.Task, error) {
+	var result []domain.Task
+	for _, task := range repo.tasks {
+		if task.AssignmentId == int(assignmentID) {
+			result = append(result, *task)
+		}
+	}
+	return result, nil
+}
+
 var errHandlerTaskLegacyNotFound = errors.New("task not found")
 
 type taskAssignmentLookup struct {
@@ -593,6 +603,21 @@ func (f *reportFakeTaskRepo) ListByAssignmentAndWeek(_ context.Context, assignme
 	}
 	key := reportTaskKey(assignmentID, weekStart)
 	return f.byAssignmentWeek[key], nil
+}
+
+func (f *reportFakeTaskRepo) ListByAssignment(_ context.Context, assignmentID int64) ([]domain.Task, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	var result []domain.Task
+	for _, tasks := range f.byAssignmentWeek {
+		for _, task := range tasks {
+			if task.AssignmentId == int(assignmentID) {
+				result = append(result, task)
+			}
+		}
+	}
+	return result, nil
 }
 
 type reportFakeAI struct {
