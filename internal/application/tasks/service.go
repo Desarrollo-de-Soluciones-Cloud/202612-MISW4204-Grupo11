@@ -19,8 +19,19 @@ import (
 type TaskService struct {
 	repo        ports.TaskRepository
 	assignments domain.AssignmentRepository
+	storage     ports.FileStorage
 	NowFunc     func() time.Time
 }
+
+const (
+	ErrMaxTimeInvestedPerTask    = "no se pueden registrar más de 22 horas en una sola tarea"
+	ErrTitleRequired             = "title is required"
+	ErrDescriptionRequired       = "description is required"
+	ErrStatusRequired            = "status is required"
+	ErrAssignmentIDRequired      = "assignment_id is required"
+	ErrTimeInvestedMustBeGreater = "time invested must be greater than 0"
+	ErrInvalidTaskID             = "invalid task id"
+)
 
 type UpdateTaskInput struct {
 	Title        *string
@@ -34,25 +45,30 @@ func NewTaskService(repo ports.TaskRepository, assignments domain.AssignmentRepo
 	return &TaskService{repo: repo, assignments: assignments, NowFunc: time.Now}
 }
 
+func (s *TaskService) WithFileStorage(storage ports.FileStorage) *TaskService {
+	s.storage = storage
+	return s
+}
+
 func (s *TaskService) currentWeekStart() time.Time {
 	return domain.WeekStartFor(s.NowFunc())
 }
 
-func (s *TaskService) isReportingWeekActive(weekStart time.Time) bool {
-	return domain.WeekStartFor(weekStart).Equal(s.currentWeekStart())
+func (s *TaskService) isCurrentWeek(weekStart time.Time) bool {
+	return weekStart.Equal(s.currentWeekStart())
 }
 
 func (s *TaskService) Create(ctx context.Context, task *domain.Task, currentUserID int64) error {
 	if strings.TrimSpace(task.Title) == "" {
-		return fmt.Errorf("title is required")
+		return fmt.Errorf(ErrTitleRequired)
 	}
 
 	if strings.TrimSpace(task.Description) == "" {
-		return fmt.Errorf("description is required")
+		return fmt.Errorf(ErrDescriptionRequired)
 	}
 
 	if strings.TrimSpace(string(task.Status)) == "" {
-		return fmt.Errorf("status is required")
+		return fmt.Errorf(ErrStatusRequired)
 	}
 
 	if err := domain.ValidateWeekStart(task.WeekStart); err != nil {
@@ -69,11 +85,11 @@ func (s *TaskService) Create(ctx context.Context, task *domain.Task, currentUser
 	}
 
 	if task.TimeInvested <= 0 {
-		return fmt.Errorf("time invested must be greater than 0")
+		return fmt.Errorf(ErrTimeInvestedMustBeGreater)
 	}
 
 	if task.AssignmentId <= 0 {
-		return fmt.Errorf("assignment_id is required")
+		return fmt.Errorf(ErrAssignmentIDRequired)
 	}
 
 	assignment, err := s.assignments.FindByID(ctx, int64(task.AssignmentId))
@@ -85,7 +101,7 @@ func (s *TaskService) Create(ctx context.Context, task *domain.Task, currentUser
 	}
 
 	if task.TimeInvested > 22 {
-		return fmt.Errorf("no se pueden registrar más de 22 horas en una sola tarea")
+		return fmt.Errorf(ErrMaxTimeInvestedPerTask)
 	}
 
 	if task.TimeRegistered.IsZero() {
@@ -121,7 +137,7 @@ func (s *TaskService) Delete(ctx context.Context, taskID string, userID int64) e
 		return domain.ErrReporteTardioNoEliminable
 	}
 
-	if !s.isReportingWeekActive(task.WeekStart) {
+	if !s.isCurrentWeek(task.WeekStart) {
 		return domain.ErrEliminacionFueraDeSemana
 	}
 
@@ -130,7 +146,7 @@ func (s *TaskService) Delete(ctx context.Context, taskID string, userID int64) e
 
 func (s *TaskService) Update(ctx context.Context, task *domain.Task, userID int64) error {
 	if task.ID <= 0 {
-		return fmt.Errorf("invalid task id")
+		return fmt.Errorf(ErrInvalidTaskID)
 	}
 
 	existingTask, err := s.repo.GetByIDForUser(ctx, strconv.Itoa(task.ID), userID)
@@ -142,28 +158,28 @@ func (s *TaskService) Update(ctx context.Context, task *domain.Task, userID int6
 		return domain.ErrReporteTardioInmutable
 	}
 
-	if !s.isReportingWeekActive(existingTask.WeekStart) {
+	if !s.isCurrentWeek(existingTask.WeekStart) {
 		return domain.ErrModificacionFueraDeSemana
 	}
 
 	if strings.TrimSpace(task.Title) == "" {
-		return fmt.Errorf("title is required")
+		return fmt.Errorf(ErrTitleRequired)
 	}
 
 	if strings.TrimSpace(task.Description) == "" {
-		return fmt.Errorf("description is required")
+		return fmt.Errorf(ErrDescriptionRequired)
 	}
 
 	if strings.TrimSpace(string(task.Status)) == "" {
-		return fmt.Errorf("status is required")
+		return fmt.Errorf(ErrStatusRequired)
 	}
 
 	if task.TimeInvested <= 0 {
-		return fmt.Errorf("time invested must be greater than 0")
+		return fmt.Errorf(ErrTimeInvestedMustBeGreater)
 	}
 
 	if task.TimeInvested > 22 {
-		return fmt.Errorf("no se pueden registrar más de 22 horas en una sola tarea")
+		return fmt.Errorf(ErrMaxTimeInvestedPerTask)
 	}
 
 	task.TimeRegistered = existingTask.TimeRegistered
@@ -183,7 +199,7 @@ func (s *TaskService) PartialUpdate(ctx context.Context, id string, userID int64
 		return nil, domain.ErrReporteTardioInmutable
 	}
 
-	if !s.isReportingWeekActive(task.WeekStart) {
+	if !s.isCurrentWeek(task.WeekStart) {
 		return nil, domain.ErrModificacionFueraDeSemana
 	}
 
@@ -204,19 +220,19 @@ func (s *TaskService) PartialUpdate(ctx context.Context, id string, userID int64
 	}
 
 	if strings.TrimSpace(task.Title) == "" {
-		return nil, fmt.Errorf("title is required")
+		return nil, fmt.Errorf(ErrTitleRequired)
 	}
 	if strings.TrimSpace(task.Description) == "" {
-		return nil, fmt.Errorf("description is required")
+		return nil, fmt.Errorf(ErrDescriptionRequired)
 	}
 	if strings.TrimSpace(string(task.Status)) == "" {
-		return nil, fmt.Errorf("status is required")
+		return nil, fmt.Errorf(ErrStatusRequired)
 	}
 	if task.TimeInvested <= 0 {
-		return nil, fmt.Errorf("time invested must be greater than 0")
+		return nil, fmt.Errorf(ErrTimeInvestedMustBeGreater)
 	}
 	if task.TimeInvested > 22 {
-		return nil, fmt.Errorf("no se pueden registrar más de 22 horas en una sola tarea")
+		return nil, fmt.Errorf(ErrMaxTimeInvestedPerTask)
 	}
 
 	if err := s.repo.Update(task); err != nil {
@@ -228,7 +244,7 @@ func (s *TaskService) PartialUpdate(ctx context.Context, id string, userID int64
 
 func (s *TaskService) UpdateStatus(ctx context.Context, task *domain.Task, userID int64) error {
 	if task.ID <= 0 {
-		return fmt.Errorf("invalid task id")
+		return fmt.Errorf(ErrInvalidTaskID)
 	}
 
 	existingTask, err := s.repo.GetByIDForUser(ctx, strconv.Itoa(task.ID), userID)
@@ -240,12 +256,12 @@ func (s *TaskService) UpdateStatus(ctx context.Context, task *domain.Task, userI
 		return domain.ErrReporteTardioInmutable
 	}
 
-	if !s.isReportingWeekActive(existingTask.WeekStart) {
+	if !s.isCurrentWeek(existingTask.WeekStart) {
 		return domain.ErrModificacionFueraDeSemana
 	}
 
 	if strings.TrimSpace(string(task.Status)) == "" {
-		return fmt.Errorf("status is required")
+		return fmt.Errorf(ErrStatusRequired)
 	}
 
 	existingTask.Status = task.Status
@@ -268,19 +284,37 @@ func (s *TaskService) UploadAttachment(ctx context.Context, taskID string, userI
 	}
 
 	uniqueName := fmt.Sprintf("%d_%s", s.NowFunc().UnixNano(), file.Filename)
-	filePath := filepath.Join("./uploads", uniqueName)
-
-	if err := saveFile(file, filePath); err != nil {
-		return nil, fmt.Errorf("could not save file: %w", err)
+	contentType := file.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "application/octet-stream"
 	}
 
-	contentType := file.Header.Get("Content-Type")
+	src, err := file.Open()
+	if err != nil {
+		return nil, fmt.Errorf("could not open file: %w", err)
+	}
+	defer src.Close()
+
+	storagePath := filepath.ToSlash(filepath.Join("attachments", uniqueName))
+	if s.storage != nil {
+		stored, err := s.storage.Save(ctx, storagePath, contentType, src)
+		if err != nil {
+			return nil, fmt.Errorf("could not save file in storage: %w", err)
+		}
+		storagePath = stored.Path
+	} else {
+		filePath := filepath.Join("./uploads", uniqueName)
+		if err := saveFileFallback(src, filePath); err != nil {
+			return nil, fmt.Errorf("could not save file: %w", err)
+		}
+		storagePath = filePath
+	}
 
 	attachment := &domain.Attachment{
 		TaskID:      taskIDInt,
 		FileName:    file.Filename,
 		ContentType: contentType,
-		StoragePath: filePath,
+		StoragePath: storagePath,
 	}
 
 	if err := s.repo.SaveAttachment(attachment); err != nil {
@@ -290,13 +324,25 @@ func (s *TaskService) UploadAttachment(ctx context.Context, taskID string, userI
 	return attachment, nil
 }
 
-func saveFile(file *multipart.FileHeader, dst string) error {
-	src, err := file.Open()
+func (s *TaskService) ListByAssignment(ctx context.Context, assignmentID int64, userID int64) ([]domain.Task, error) {
+	// Verify the user has access to this assignment
+	assignment, err := s.assignments.FindByID(ctx, assignmentID)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	defer src.Close()
+	if assignment.UserID != userID && assignment.ProfessorID != userID {
+		return nil, domain.ErrAssignmentNotOwned
+	}
 
+	tasks, err := s.repo.ListByAssignment(ctx, assignmentID)
+	if err != nil {
+		return nil, err
+	}
+
+	return tasks, nil
+}
+
+func saveFileFallback(src multipart.File, dst string) error {
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
 	}

@@ -61,6 +61,9 @@ func (stubUserRepoForRoutes) CreateUser(_ context.Context, _, _, _ string, _ []s
 func (stubUserRepoForRoutes) ListUsers(_ context.Context) ([]domain.User, error) {
 	return nil, nil
 }
+func (stubUserRepoForRoutes) ListUsersByRole(_ context.Context, _ string) ([]domain.User, error) {
+	return nil, nil
+}
 func (stubUserRepoForRoutes) EmailExists(_ context.Context, _ string) (bool, error) {
 	return false, nil
 }
@@ -138,6 +141,10 @@ func (f fakeTaskRepo) UpdateStatus(task *domain.Task) error {
 }
 
 func (f fakeTaskRepo) ListByAssignmentAndWeek(_ context.Context, _ int64, _ time.Time) ([]domain.Task, error) {
+	return nil, nil
+}
+
+func (f fakeTaskRepo) ListByAssignment(_ context.Context, _ int64) ([]domain.Task, error) {
 	return nil, nil
 }
 

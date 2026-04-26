@@ -492,6 +492,16 @@ func (repo *handlerTaskRepo) ListByAssignmentAndWeek(_ context.Context, _ int64,
 	return nil, nil
 }
 
+func (repo *handlerTaskRepo) ListByAssignment(_ context.Context, assignmentID int64) ([]domain.Task, error) {
+	var result []domain.Task
+	for _, task := range repo.tasks {
+		if task.AssignmentId == int(assignmentID) {
+			result = append(result, *task)
+		}
+	}
+	return result, nil
+}
+
 var errHandlerTaskLegacyNotFound = errors.New("task not found")
 
 type taskAssignmentLookup struct {
@@ -595,6 +605,21 @@ func (f *reportFakeTaskRepo) ListByAssignmentAndWeek(_ context.Context, assignme
 	return f.byAssignmentWeek[key], nil
 }
 
+func (f *reportFakeTaskRepo) ListByAssignment(_ context.Context, assignmentID int64) ([]domain.Task, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	var result []domain.Task
+	for _, tasks := range f.byAssignmentWeek {
+		for _, task := range tasks {
+			if task.AssignmentId == int(assignmentID) {
+				result = append(result, task)
+			}
+		}
+	}
+	return result, nil
+}
+
 type reportFakeAI struct {
 	response string
 	err      error
@@ -677,6 +702,17 @@ func (h *handlerUserRepo) ListUsers(_ context.Context) ([]domain.User, error) {
 	return out, nil
 }
 
+func (h *handlerUserRepo) ListUsersByRole(_ context.Context, _ string) ([]domain.User, error) {
+	if h.listErr != nil {
+		return nil, h.listErr
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	out := make([]domain.User, len(h.users))
+	copy(out, h.users)
+	return out, nil
+}
+
 func (h *handlerUserRepo) EmailExists(_ context.Context, email string) (bool, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -707,6 +743,9 @@ func (s *overviewUserStub) CreateUser(_ context.Context, _, _, _ string, _ []str
 	return 0, nil
 }
 func (s *overviewUserStub) ListUsers(_ context.Context) ([]domain.User, error) {
+	return s.users, s.err
+}
+func (s *overviewUserStub) ListUsersByRole(_ context.Context, _ string) ([]domain.User, error) {
 	return s.users, s.err
 }
 func (s *overviewUserStub) EmailExists(_ context.Context, _ string) (bool, error) { return false, nil }
