@@ -324,6 +324,42 @@ func (s *TaskService) UploadAttachment(ctx context.Context, taskID string, userI
 	return attachment, nil
 }
 
+func (s *TaskService) GetAttachments(ctx context.Context, taskID int) ([]domain.Attachment, error) {
+	taskIDStr := strconv.Itoa(taskID)
+	_, err := s.repo.GetByID(taskIDStr)
+	if err != nil {
+		return nil, err
+	}
+
+	attachments, err := s.repo.GetAttachments(ctx, taskID)
+	if err != nil {
+		return nil, err
+	}
+
+	return attachments, nil
+}
+
+func saveFile(file *multipart.FileHeader, dst string) error {
+	src, err := file.Open()
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return err
+	}
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, src)
+	return err
+}
+
 func (s *TaskService) ListByAssignment(ctx context.Context, assignmentID int64, userID int64) ([]domain.Task, error) {
 	// Verify the user has access to this assignment
 	assignment, err := s.assignments.FindByID(ctx, assignmentID)

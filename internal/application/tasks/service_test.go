@@ -645,3 +645,15 @@ func createMultipartFileHeader(t *testing.T, fieldName, filename, content string
 	}
 	return files[0]
 }
+
+func (f *fakeRepo) GetAttachments(_ context.Context, taskID int) ([]domain.Attachment, error) {
+	result := make([]domain.Attachment, 0)
+
+	for _, attachment := range f.attachments {
+		if attachment.TaskID == taskID {
+			result = append(result, *attachment)
+		}
+	}
+
+	return result, nil
+}

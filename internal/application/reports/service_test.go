@@ -281,3 +281,7 @@ func TestGetReportFile_WrongProfessor_Forbidden(t *testing.T) {
 		t.Fatalf("expected ErrReporteNoAutorizado, got %v", err)
 	}
 }
+
+func (f *fakeTaskRepo) GetAttachments(_ context.Context, _ int) ([]domain.Attachment, error) {
+	return []domain.Attachment{}, nil
+}
