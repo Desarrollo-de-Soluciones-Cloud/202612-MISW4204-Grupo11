@@ -152,6 +152,10 @@ func (f fakePinger) Ping(_ context.Context) error {
 	return f.err
 }
 
+func (f fakeTaskRepo) GetAttachments(ctx context.Context, taskID int) ([]domain.Attachment, error) {
+	return []domain.Attachment{}, nil
+}
+
 func testAdminHandler() *handlers.Admin {
 	overview := appadmin.NewPlatformOverviewService(
 		stubUserRepoForRoutes{},

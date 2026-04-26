@@ -596,7 +596,10 @@ func (f *reportFakeTaskRepo) GetByIDForUser(_ context.Context, _ string, _ int64
 func (f *reportFakeTaskRepo) Update(_ *domain.Task) error               { return nil }
 func (f *reportFakeTaskRepo) Delete(_ string) error                     { return nil }
 func (f *reportFakeTaskRepo) SaveAttachment(_ *domain.Attachment) error { return nil }
-func (f *reportFakeTaskRepo) UpdateStatus(_ *domain.Task) error         { return nil }
+func (f *reportFakeTaskRepo) GetAttachments(_ context.Context, _ int) ([]domain.Attachment, error) {
+	return []domain.Attachment{}, nil
+}
+func (f *reportFakeTaskRepo) UpdateStatus(_ *domain.Task) error { return nil }
 func (f *reportFakeTaskRepo) ListByAssignmentAndWeek(_ context.Context, assignmentID int64, weekStart time.Time) ([]domain.Task, error) {
 	if f.err != nil {
 		return nil, f.err
@@ -818,4 +821,8 @@ type overviewTaskStub struct {
 
 func (s *overviewTaskStub) ListAll(_ context.Context) ([]domain.Task, error) {
 	return s.tasks, s.err
+}
+
+func (r *handlerTaskRepo) GetAttachments(_ context.Context, _ int) ([]domain.Attachment, error) {
+	return []domain.Attachment{}, nil
 }
