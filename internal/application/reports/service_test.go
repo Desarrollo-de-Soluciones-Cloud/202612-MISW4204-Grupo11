@@ -3,6 +3,7 @@ package reports
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -249,8 +250,13 @@ func TestGenerateWeekly_AIFailure_FallbackSummary(t *testing.T) {
 	if len(reports) != 1 {
 		t.Fatalf("expected 1 report, got %d", len(reports))
 	}
-	if reports[0].AISummary != "Resumen no disponible (error en el servicio de IA)." {
-		t.Fatalf("expected fallback summary, got %q", reports[0].AISummary)
+	got := reports[0].AISummary
+	// Deterministic fallback: must mention the user, the role, the count of tasks,
+	// and the hours-vs-contracted comparison. Exact wording is allowed to drift.
+	for _, must := range []string{"Juan Perez", "monitor", "Tareas registradas:", "Horas trabajadas:", "contratadas"} {
+		if !strings.Contains(got, must) {
+			t.Fatalf("fallback summary missing %q, got %q", must, got)
+		}
 	}
 }
 
