@@ -62,12 +62,12 @@ func (s *ReportService) GenerateWeeklyReports(ctx context.Context, professorID i
 			totalHours += t.TimeInvested
 		}
 
-		prompt := buildPrompt(aw.UserName, aw.RoleInAssignment, weekStart.Format("2006-01-02"), tasks, totalHours, aw.ContractedHoursPerWeek)
+		prompt := buildPrompt(aw.UserName, aw.RoleInAssignment, weekStart.Format(time.DateOnly), tasks, totalHours, aw.ContractedHoursPerWeek)
 
 		summary, err := s.ai.Summarize(ctx, prompt)
 		if err != nil {
 			log.Printf("AI summary failed for %s (assignment %d): %v", aw.UserName, aw.ID, err)
-			summary = "Resumen no disponible (error en el servicio de IA)."
+			summary = buildFallbackSummary(aw.UserName, aw.RoleInAssignment, weekStart, tasks, totalHours, aw.ContractedHoursPerWeek)
 		}
 
 		filePath, err := s.pdf.Generate(ports.PDFReportData{
@@ -136,6 +136,37 @@ func (s *ReportService) ListReports(ctx context.Context, professorID int64) ([]d
 
 func (s *ReportService) ListReportsByWeek(ctx context.Context, professorID int64, weekStart time.Time) ([]domain.Report, error) {
 	return s.reports.FindByProfessorAndWeek(ctx, professorID, weekStart)
+}
+
+// buildFallbackSummary returns a deterministic Spanish summary built only from
+// the data already in the report. Used when the AI summarizer is unavailable —
+// keeps the PDF informative instead of surfacing a service-down message.
+func buildFallbackSummary(userName, role string, weekStart time.Time, tasks []domain.Task, totalHours, contractedHours int) string {
+	weekEnd := weekStart.AddDate(0, 0, 6)
+	var abierto, enDesarrollo, finalizado int
+	for _, t := range tasks {
+		switch t.Status {
+		case domain.StatusOpen:
+			abierto++
+		case domain.StatusInDevelopment:
+			enDesarrollo++
+		case domain.StatusFinalized:
+			finalizado++
+		}
+	}
+	pct := 0
+	if contractedHours > 0 {
+		pct = (totalHours * 100) / contractedHours
+	}
+	return fmt.Sprintf(
+		"Reporte semanal de %s (%s) — semana del %s al %s. "+
+			"Tareas registradas: %d (%d abierta, %d en desarrollo, %d finalizada). "+
+			"Horas trabajadas: %d sobre %d contratadas (%d%%).",
+		userName, role,
+		weekStart.Format(time.DateOnly), weekEnd.Format(time.DateOnly),
+		len(tasks), abierto, enDesarrollo, finalizado,
+		totalHours, contractedHours, pct,
+	)
 }
 
 func buildPrompt(userName, role, weekStart string, tasks []domain.Task, totalHours, contractedHours int) string {
