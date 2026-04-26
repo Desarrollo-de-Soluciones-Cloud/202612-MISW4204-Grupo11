@@ -62,7 +62,7 @@ func (s *ReportService) GenerateWeeklyReports(ctx context.Context, professorID i
 			totalHours += t.TimeInvested
 		}
 
-		prompt := buildPrompt(aw.UserName, aw.RoleInAssignment, weekStart.Format("2006-01-02"), tasks, totalHours, aw.ContractedHoursPerWeek)
+		prompt := buildPrompt(aw.UserName, aw.RoleInAssignment, weekStart.Format(time.DateOnly), tasks, totalHours, aw.ContractedHoursPerWeek)
 
 		summary, err := s.ai.Summarize(ctx, prompt)
 		if err != nil {
@@ -163,7 +163,7 @@ func buildFallbackSummary(userName, role string, weekStart time.Time, tasks []do
 			"Tareas registradas: %d (%d abierta, %d en desarrollo, %d finalizada). "+
 			"Horas trabajadas: %d sobre %d contratadas (%d%%).",
 		userName, role,
-		weekStart.Format("2006-01-02"), weekEnd.Format("2006-01-02"),
+		weekStart.Format(time.DateOnly), weekEnd.Format(time.DateOnly),
 		len(tasks), abierto, enDesarrollo, finalizado,
 		totalHours, contractedHours, pct,
 	)
