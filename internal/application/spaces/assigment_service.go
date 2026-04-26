@@ -119,10 +119,10 @@ func validateAssignmentListRules(listUser []domain.Assignment, role string) erro
 		return fmt.Errorf("El usuario ya tiene mas e 3 monitorias, no se puede agregar otra monitoria mas.")
 	}
 	if domain.CheckMaxHoursPerRole(listUser) {
-		return fmt.Errorf("El usuario ha pasado el limite de horas para su role " + role)
+		return fmt.Errorf("El usuario ha pasado el limite de horas para su role %s", role)
 	}
 	if domain.Validar40PercentOfMonitorHours(listUser) {
-		return fmt.Errorf("El no puede asignarse mas horas de monitoria. Si se agrega esta vinculacion, se estaria pasando el limite de 40 porciente de las horas contratadas como " + role)
+		return fmt.Errorf("El no puede asignarse mas horas de monitoria. Si se agrega esta vinculacion, se estaria pasando el limite de 40 porciente de las horas contratadas como %s", role)
 	}
 	return nil
 }

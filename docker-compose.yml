@@ -50,6 +50,9 @@ services:
       BROKER_EXCHANGE: reports
       BROKER_QUEUE: reports.weekly.generate
       BROKER_ROUTING_KEY: reports.weekly.generate
+      STORAGE_PROVIDER: local
+      STORAGE_LOCAL_DIR: ./uploads
+      GCS_REPORTS_PREFIX: reports
     ports:
       - "8080:8080"
     volumes:
