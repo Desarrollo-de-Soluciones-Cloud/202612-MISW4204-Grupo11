@@ -98,3 +98,9 @@ Tras un arranque con **Postgres sin datos** (por ejemplo la primera vez, o si co
 3. **Recién ahí** — con `Authorization: Bearer <token>` del administrador podés crear profesores, monitores y asistentes (`POST /api/v1/users`), abrir períodos académicos, etc.
 
 Hasta que exista ese administrador no hay credenciales válidas para `login`; si el primer `POST /users` no trae rol `administrador`, la API responde **400**. Cuando ya hay usuarios, `POST /users` sin token de admin responde **401/403**.
+
+
+---
+## Repositorio del Frontend la Aplicacion en Angular
+
+* https://github.com/sc-pineda/MISW4204-Frontend-Grupo11-Cloud/tree/develop
