@@ -101,6 +101,6 @@ Hasta que exista ese administrador no hay credenciales válidas para `login`; si
 
 
 ---
-## Repositorio del Frontend la Aplicacion en Angular
+## Repositorio del Frontend de la Aplicacion en Angular
 
 * https://github.com/sc-pineda/MISW4204-Frontend-Grupo11-Cloud/tree/develop
