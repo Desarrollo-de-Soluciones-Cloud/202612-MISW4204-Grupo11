@@ -1,9 +1,8 @@
 package pdf
 
 import (
-	"bytes"
-	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/ports"
@@ -12,17 +11,16 @@ import (
 )
 
 type Generator struct {
-	storage       ports.FileStorage
-	reportsPrefix string
+	outputDir string
 }
 
-func NewGenerator(storage ports.FileStorage, reportsPrefix string) *Generator {
-	return &Generator{storage: storage, reportsPrefix: reportsPrefix}
+func NewGenerator(outputDir string) *Generator {
+	return &Generator{outputDir: outputDir}
 }
 
 func (g *Generator) Generate(data ports.PDFReportData) (string, error) {
-	if g.storage == nil {
-		return "", fmt.Errorf("pdf storage is not configured")
+	if err := os.MkdirAll(g.outputDir, 0o755); err != nil {
+		return "", fmt.Errorf("pdf mkdir: %w", err)
 	}
 
 	pdf := fpdf.New("P", "mm", "A4", "")
@@ -94,19 +92,15 @@ func (g *Generator) Generate(data ports.PDFReportData) (string, error) {
 	pdf.CellFormat(0, 7, fmt.Sprintf("Total horas reportadas: %d / Horas contratadas: %d",
 		data.TotalHoursWorked, data.ContractedHours), "", 1, "L", false, 0, "")
 
-	var buf bytes.Buffer
-	if err := pdf.Output(&buf); err != nil {
-		return "", fmt.Errorf("pdf render: %w", err)
-	}
-
+	// Save
 	fileName := uuid.New().String() + ".pdf"
-	objectPath := filepath.ToSlash(filepath.Join(g.reportsPrefix, fileName))
-	stored, err := g.storage.Save(context.Background(), objectPath, "application/pdf", &buf)
-	if err != nil {
-		return "", fmt.Errorf("pdf storage save: %w", err)
+	filePath := filepath.Join(g.outputDir, fileName)
+
+	if err := pdf.OutputFileAndClose(filePath); err != nil {
+		return "", fmt.Errorf("pdf write: %w", err)
 	}
 
-	return stored.Path, nil
+	return filePath, nil
 }
 
 func roleLabel(role string) string {
