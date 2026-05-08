@@ -6,20 +6,16 @@ import (
 
 	httpadapter "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/http"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/http/handlers"
-	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/outbound/messaging"
-	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/outbound/ollama"
-	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/outbound/pdf"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/outbound/postgres"
-	gcsstorage "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/outbound/storage/gcs"
-	localstorage "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/outbound/storage/local"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application"
 	appadmin "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/admin"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/auth"
-	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/ports"
-	appreports "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/reports"
 	appspaces "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/spaces"
+	appreports "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/reports"
 	apptasks "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/tasks"
 	appusers "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/users"
+	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/outbound/ollama"
+	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/outbound/pdf"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/config"
 )
 
@@ -66,41 +62,16 @@ func main() {
 
 	readiness := &application.Readiness{DB: pool}
 
-	var fileStorage ports.FileStorage
-	switch cfg.StorageProvider {
-	case "gcs":
-		if cfg.GCSBucket == "" {
-			log.Fatal("GCS_BUCKET is required when STORAGE_PROVIDER=gcs")
-		}
-		gcsClient, err := gcsstorage.NewStorage(ctx, cfg.GCSBucket)
-		if err != nil {
-			log.Fatalf("gcs storage: %v", err)
-		}
-		defer gcsClient.Close()
-		fileStorage = gcsClient
-	default:
-		fileStorage = localstorage.NewStorage(cfg.StorageLocalDir)
-	}
-
 	taskRepo := postgres.NewTaskRepository(db)
-	taskService := apptasks.NewTaskService(taskRepo, assignmentRepo).WithFileStorage(fileStorage)
+	taskService := apptasks.NewTaskService(taskRepo, assignmentRepo)
 	taskHandler := handlers.NewTaskHandler(taskService)
 
 	ollamaClient := ollama.NewClient(cfg.OllamaURL, cfg.OllamaModel)
 	ollamaClient.EnsureModel(ctx)
-	pdfGenerator := pdf.NewGenerator(fileStorage, cfg.GCSReportsPrefix)
+	pdfGenerator := pdf.NewGenerator("./uploads/reports")
 	reportRepo := postgres.NewReportRepo(pool)
 	reportService := appreports.NewReportService(reportRepo, assignmentRepo, taskRepo, ollamaClient, pdfGenerator)
-	rabbitmqClient, err := messaging.NewRabbitMQ(cfg.BrokerURL, cfg.BrokerExchange, cfg.BrokerQueue, cfg.BrokerRoutingKey)
-	if err != nil {
-		log.Fatalf("rabbitmq: %v", err)
-	}
-	defer rabbitmqClient.Close()
-	reportSubmitService := appreports.NewSubmitService(rabbitmqClient)
-	reportHandler := handlers.NewReportHandler(reportService, reportSubmitService).WithStorage(fileStorage)
-	if err := rabbitmqClient.ConsumeWeeklyReportJobs(ctx, reportService.ProcessWeeklyReportJob); err != nil {
-		log.Fatalf("rabbitmq consumer: %v", err)
-	}
+	reportHandler := handlers.NewReportHandler(reportService)
 
 	platformOverview := appadmin.NewPlatformOverviewService(
 		userRepo,

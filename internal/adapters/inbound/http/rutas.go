@@ -47,7 +47,7 @@ func NewEngine(deps Deps) *gin.Engine {
 
 	adminUsers := apiV1.Group("/users")
 	adminUsers.Use(middleware.Autenticar(deps.JWTSecret))
-	adminUsers.Use(middleware.ExigeRol(domain.RolAdministrador, domain.RolProfesor))
+	adminUsers.Use(middleware.ExigeRol(domain.RolAdministrador))
 	adminUsers.GET("", deps.Users.GetList)
 
 	spaces := apiV1.Group("/spaces")
@@ -62,6 +62,15 @@ func NewEngine(deps Deps) *gin.Engine {
 		spaces.POST("/:id/assignments", deps.Assignments.Create)
 		spaces.GET("/:id/assignments", deps.Assignments.ListBySpace)
 		spaces.GET("/:id/assignments/:assignmentID", deps.Assignments.Get)
+
+	}
+
+	listAssignments := apiV1.Group("userAssignments")
+	listAssignments.Use(middleware.Autenticar(deps.JWTSecret))
+	listAssignments.Use(middleware.ExigeRol(domain.RolAsistenteGraduado, domain.RolMonitor, domain.RolProfesor))
+	{
+		listAssignments.GET("", deps.Assignments.ListMyAssignments)
+		listAssignments.GET("/profesor", deps.Assignments.ListByProfessor)
 	}
 
 	professors := apiV1.Group("/professors")
@@ -69,7 +78,6 @@ func NewEngine(deps Deps) *gin.Engine {
 	professors.Use(middleware.ExigeRol(domain.RolProfesor))
 	professors.GET("/me/assignments", deps.Assignments.ListByProfessor)
 	professors.GET("/me/tasks", deps.TaskHandler.ListForProfessor)
-	professors.GET("/assignments/:assignmentID/tasks", deps.TaskHandler.ListByAssignment)
 
 	reports := apiV1.Group("/reports")
 	reports.Use(middleware.Autenticar(deps.JWTSecret))
@@ -80,18 +88,14 @@ func NewEngine(deps Deps) *gin.Engine {
 		reports.GET("/:id/download", deps.Reports.Download)
 	}
 
-	periodsAdmin := apiV1.Group("/periods")
-	periodsAdmin.Use(middleware.Autenticar(deps.JWTSecret))
-	periodsAdmin.Use(middleware.ExigeRol(domain.RolAdministrador))
+	periods := apiV1.Group("/periods")
+	periods.Use(middleware.Autenticar(deps.JWTSecret))
+	periods.Use(middleware.ExigeRol(domain.RolAdministrador))
 	{
-		periodsAdmin.POST("", deps.Periods.Create)
-		periodsAdmin.PATCH("/:id/close", deps.Periods.Close)
+		periods.POST("", deps.Periods.Create)
+		periods.GET("", deps.Periods.List)
+		periods.PATCH("/:id/close", deps.Periods.Close)
 	}
-
-	periodsRead := apiV1.Group("/periods")
-	periodsRead.Use(middleware.Autenticar(deps.JWTSecret))
-	periodsRead.Use(middleware.ExigeRol(domain.RolAdministrador, domain.RolProfesor))
-	periodsRead.GET("", deps.Periods.List)
 
 	tasks := apiV1.Group("/tasks")
 	tasks.Use(middleware.Autenticar(deps.JWTSecret))
@@ -110,16 +114,8 @@ func NewEngine(deps Deps) *gin.Engine {
 	}
 	assignmentsMine := apiV1.Group("/assignments")
 	assignmentsMine.Use(middleware.Autenticar(deps.JWTSecret))
-	assignmentsMine.Use(middleware.ExigeRol(domain.RolMonitor, domain.RolAsistenteGraduado, domain.RolAdministrador))
+	assignmentsMine.Use(middleware.ExigeRol(domain.RolMonitor, domain.RolAsistenteGraduado))
 	assignmentsMine.GET("/me", deps.Assignments.ListMyAssignments)
-
-	listAssignments := apiV1.Group("userAssignments")
-	listAssignments.Use(middleware.Autenticar(deps.JWTSecret))
-	listAssignments.Use(middleware.ExigeRol(domain.RolAsistenteGraduado, domain.RolMonitor, domain.RolProfesor))
-	{
-		listAssignments.GET("", deps.Assignments.ListMyAssignments)
-		listAssignments.GET("/profesor", deps.Assignments.ListByProfessor)
-	}
 
 	adminTasks := apiV1.Group("/admin/tasks")
 	adminTasks.Use(middleware.Autenticar(deps.JWTSecret))
@@ -139,7 +135,6 @@ func NewEngine(deps Deps) *gin.Engine {
 	adminAssignments.Use(middleware.ExigeRol(domain.RolAdministrador))
 	{
 		adminAssignments.GET("", deps.Assignments.ListAllForAdmin)
-		adminAssignments.GET("/tasks", deps.TaskHandler.GetAllTasks)
 		adminAssignments.PATCH("/:assignmentID", deps.Assignments.UpdateByAdmin)
 	}
 
