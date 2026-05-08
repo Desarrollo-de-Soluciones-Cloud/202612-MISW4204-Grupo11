@@ -25,10 +25,10 @@ Este repositorio es el espacio de trabajo del **Grupo 11** para el proyecto del 
 
 ### Cómo correrlo localmente en tu PC
 
-1. Levanta **solo PostgreSQL**:
+1. Levanta dependencias base (**PostgreSQL + RabbitMQ**):
 
    ```bash
-   docker compose up postgres
+   docker compose up postgres rabbitmq
    ```
 
 2. Cuando el contenedor esté *healthy*, en **otra terminal** (desde la raíz del repo), define `JWT_SECRET` y arranca:
@@ -39,6 +39,7 @@ Este repositorio es el espacio de trabajo del **Grupo 11** para el proyecto del 
    ```
 
    Si no defines `DATABASE_URL`, el programa usa por defecto `127.0.0.1:5432` con usuario/clave `app` (igual que en `docker-compose.yml`).
+   Para reportes asíncronos también usa por defecto RabbitMQ en `amqp://guest:guest@localhost:5672/`.
 
 3. Salud: [http://localhost:8080/health](http://localhost:8080/health) y [http://localhost:8080/health/ready](http://localhost:8080/health/ready).
 
@@ -63,6 +64,12 @@ Este repositorio es el espacio de trabajo del **Grupo 11** para el proyecto del 
 
    Roles globales válidos: `administrador`, `profesor`, `monitor`, `asistente_graduado`.
 
+6. **Reportes semanales (asíncronos con broker)**
+   - `POST /api/v1/reports/weekly` — encola la generación y responde `202 Accepted` con `request_id`.
+   - `GET /api/v1/reports` — lista reportes generados/persistidos.
+   - `GET /api/v1/reports?week_start=YYYY-MM-DD` — lista filtrada por semana.
+   - `GET /api/v1/reports/:id/download` — descarga PDF.
+
 El API **siempre** necesita PostgreSQL accesible; si la base no está levantada, el proceso terminará con un mensaje de error al arrancar.
 
 ### Si el login devuelve 401 «correo o contraseña incorrectos»
@@ -79,7 +86,7 @@ go test ./...
 go vet ./...
 ```
 
-### Todo con Docker (API + Postgres)
+### Todo con Docker (API + Postgres + RabbitMQ + Ollama)
 
 ```bash
 docker compose up --build

@@ -89,6 +89,38 @@ INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id`
 	return userID, nil
 }
 
+func (repository *UserRepository) ListUsersByRole(ctx context.Context, role string) ([]domain.User, error) {
+	const query = `
+SELECT u.id, u.name, u.email,
+       COALESCE(array_agg(r.name ORDER BY r.name) FILTER (WHERE r.name IS NOT NULL), '{}')
+FROM users u
+JOIN user_roles ur ON ur.user_id = u.id
+JOIN roles r ON r.id = ur.role_id
+WHERE u.id IN (
+    SELECT ur2.user_id FROM user_roles ur2
+    JOIN roles r2 ON r2.id = ur2.role_id
+    WHERE r2.name = $1
+)
+GROUP BY u.id
+ORDER BY u.id`
+
+	rows, queryErr := repository.db.Query(ctx, query, role)
+	if queryErr != nil {
+		return nil, queryErr
+	}
+	defer rows.Close()
+
+	var users []domain.User
+	for rows.Next() {
+		var user domain.User
+		if scanErr := rows.Scan(&user.ID, &user.Name, &user.Email, &user.Roles); scanErr != nil {
+			return nil, scanErr
+		}
+		users = append(users, user)
+	}
+	return users, rows.Err()
+}
+
 func (repository *UserRepository) ListUsers(ctx context.Context) ([]domain.User, error) {
 	const listUsersQuery = `
 SELECT u.id, u.name, u.email,

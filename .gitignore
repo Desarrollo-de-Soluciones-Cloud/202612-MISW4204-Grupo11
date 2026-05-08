@@ -6,6 +6,7 @@
 
 # Go
 coverage.out
+coverage.html
 
 # Entorno local (no versionar secretos)
 .env

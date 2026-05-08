@@ -10,6 +10,7 @@ type UserRepository interface {
 	FindCredentialsByEmail(ctx context.Context, email string) (*domain.UserCredentials, error)
 	CreateUser(ctx context.Context, name, email, passwordHash string, roleNames []string) (int64, error)
 	ListUsers(ctx context.Context) ([]domain.User, error)
+	ListUsersByRole(ctx context.Context, role string) ([]domain.User, error)
 	EmailExists(ctx context.Context, email string) (bool, error)
 	CountUsers(ctx context.Context) (int64, error)
 }

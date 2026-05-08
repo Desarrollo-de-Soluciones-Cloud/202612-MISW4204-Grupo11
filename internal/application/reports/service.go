@@ -105,6 +105,20 @@ func (s *ReportService) GenerateWeeklyReports(ctx context.Context, professorID i
 	return results, nil
 }
 
+func (s *ReportService) ProcessWeeklyReportJob(ctx context.Context, job ports.WeeklyReportJob) error {
+	weekStart, err := time.Parse(time.DateOnly, job.WeekStart)
+	if err != nil {
+		return fmt.Errorf("week_start inválido en job %s: %w", job.RequestID, err)
+	}
+
+	_, err = s.GenerateWeeklyReports(ctx, job.ProfessorID, weekStart)
+	if err != nil {
+		return fmt.Errorf("error procesando job %s: %w", job.RequestID, err)
+	}
+
+	return nil
+}
+
 func (s *ReportService) GetReportFile(ctx context.Context, reportID, professorID int64) (string, error) {
 	report, err := s.reports.FindByID(ctx, reportID)
 	if err != nil {

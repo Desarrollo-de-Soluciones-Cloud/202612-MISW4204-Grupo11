@@ -137,6 +137,16 @@ func (repo *fakeRepo) ListByAssignmentAndWeek(_ context.Context, _ int64, _ time
 	return nil, nil
 }
 
+func (repo *fakeRepo) ListByAssignment(_ context.Context, assignmentID int64) ([]domain.Task, error) {
+	var result []domain.Task
+	for _, task := range repo.tasks {
+		if task.AssignmentId == int(assignmentID) {
+			result = append(result, *task)
+		}
+	}
+	return result, nil
+}
+
 var errLegacyTaskNotFound = errors.New("task not found")
 
 type fakeAssignmentRepo struct {

@@ -24,6 +24,9 @@ func (s *stubUserRepo) CreateUser(_ context.Context, _, _, _ string, _ []string)
 func (s *stubUserRepo) ListUsers(_ context.Context) ([]domain.User, error) {
 	return s.users, s.err
 }
+func (s *stubUserRepo) ListUsersByRole(_ context.Context, _ string) ([]domain.User, error) {
+	return s.users, s.err
+}
 func (s *stubUserRepo) EmailExists(_ context.Context, _ string) (bool, error) { return false, nil }
 func (s *stubUserRepo) CountUsers(_ context.Context) (int64, error)           { return 0, nil }
 

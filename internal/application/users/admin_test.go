@@ -45,6 +45,10 @@ func (stub *stubUserRepository) ListUsers(ctx context.Context) ([]domain.User, e
 	return stub.listUsersResult, stub.listUsersError
 }
 
+func (stub *stubUserRepository) ListUsersByRole(ctx context.Context, role string) ([]domain.User, error) {
+	return stub.listUsersResult, stub.listUsersError
+}
+
 func (stub *stubUserRepository) EmailExists(ctx context.Context, email string) (bool, error) {
 	return stub.emailExistsResult, stub.emailExistsError
 }

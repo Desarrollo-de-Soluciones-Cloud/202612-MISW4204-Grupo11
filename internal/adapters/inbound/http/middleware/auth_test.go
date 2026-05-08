@@ -31,6 +31,9 @@ func (*userRepoWithCreds) CreateUser(_ context.Context, _, _, _ string, _ []stri
 	return 0, nil
 }
 func (*userRepoWithCreds) ListUsers(_ context.Context) ([]domain.User, error) { return nil, nil }
+func (*userRepoWithCreds) ListUsersByRole(_ context.Context, _ string) ([]domain.User, error) {
+	return nil, nil
+}
 func (*userRepoWithCreds) EmailExists(_ context.Context, _ string) (bool, error) {
 	return false, nil
 }

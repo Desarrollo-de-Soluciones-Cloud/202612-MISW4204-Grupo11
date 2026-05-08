@@ -28,6 +28,10 @@ func (stub *stubUserRepository) ListUsers(ctx context.Context) ([]domain.User, e
 	return nil, nil
 }
 
+func (stub *stubUserRepository) ListUsersByRole(ctx context.Context, role string) ([]domain.User, error) {
+	return nil, nil
+}
+
 func (stub *stubUserRepository) EmailExists(ctx context.Context, email string) (bool, error) {
 	return false, nil
 }
