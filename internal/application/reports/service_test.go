@@ -14,8 +14,9 @@ import (
 // --- Fakes ---
 
 type fakeReportRepo struct {
-	reports map[int64]*domain.Report
-	nextID  int64
+	reports   map[int64]*domain.Report
+	nextID    int64
+	createErr error
 }
 
 func newFakeReportRepo() *fakeReportRepo {
@@ -23,6 +24,9 @@ func newFakeReportRepo() *fakeReportRepo {
 }
 
 func (f *fakeReportRepo) Create(_ context.Context, r *domain.Report) error {
+	if f.createErr != nil {
+		return f.createErr
+	}
 	r.ID = f.nextID
 	r.CreatedAt = time.Now()
 	f.nextID++
@@ -62,6 +66,7 @@ func (f *fakeReportRepo) FindByProfessor(_ context.Context, profID int64) ([]dom
 
 type fakeAssignmentRepo struct {
 	byProfessor map[int64][]domain.AssignmentWithUser
+	err         error
 }
 
 func (f *fakeAssignmentRepo) Create(_ context.Context, _ *domain.Assignment) error { return nil }
@@ -81,6 +86,9 @@ func (f *fakeAssignmentRepo) FindActiveByUserAndRole(_ context.Context, _ int64,
 	return nil, nil
 }
 func (f *fakeAssignmentRepo) FindByProfessorWithUser(_ context.Context, profID int64) ([]domain.AssignmentWithUser, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
 	return f.byProfessor[profID], nil
 }
 func (f *fakeAssignmentRepo) ListAll(_ context.Context) ([]domain.Assignment, error) { return nil, nil }
@@ -88,6 +96,7 @@ func (f *fakeAssignmentRepo) Update(_ context.Context, _ *domain.Assignment) err
 
 type fakeTaskRepo struct {
 	byAssignmentWeek map[string][]domain.Task
+	err              error
 }
 
 func (f *fakeTaskRepo) Create(_ *domain.Task) error                      { return nil }
@@ -108,6 +117,9 @@ func (f *fakeTaskRepo) SaveAttachment(_ *domain.Attachment) error { return nil }
 func (f *fakeTaskRepo) UpdateStatus(_ *domain.Task) error         { return nil }
 
 func (f *fakeTaskRepo) ListByAssignmentAndWeek(_ context.Context, assignmentID int64, weekStart time.Time) ([]domain.Task, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
 	key := taskKey(assignmentID, weekStart)
 	return f.byAssignmentWeek[key], nil
 }
@@ -139,9 +151,13 @@ func (f *fakeAI) Summarize(_ context.Context, _ string) (string, error) {
 
 type fakePDF struct {
 	lastData *ports.PDFReportData
+	err      error
 }
 
 func (f *fakePDF) Generate(data ports.PDFReportData) (string, error) {
+	if f.err != nil {
+		return "", f.err
+	}
 	f.lastData = &data
 	return "./uploads/reports/fake.pdf", nil
 }
@@ -266,6 +282,75 @@ func TestGenerateWeekly_InvalidWeekStart_Rejected(t *testing.T) {
 	_, err := svc.GenerateWeeklyReports(context.Background(), profID, tuesday)
 	if !errors.Is(err, domain.ErrSemanaInicioNoEsLunes) {
 		t.Fatalf("expected ErrSemanaInicioNoEsLunes, got %v", err)
+	}
+}
+
+func TestGenerateWeekly_AssignmentLookupError(t *testing.T) {
+	reportRepo := newFakeReportRepo()
+	pdfGen := &fakePDF{}
+	svc := NewReportService(
+		reportRepo,
+		&fakeAssignmentRepo{err: errors.New("assignments down")},
+		&fakeTaskRepo{byAssignmentWeek: sampleTasks()},
+		&fakeAI{response: "ok"},
+		pdfGen,
+	)
+
+	_, err := svc.GenerateWeeklyReports(context.Background(), profID, monday)
+	if err == nil || !strings.Contains(err.Error(), "error obteniendo vinculaciones") {
+		t.Fatalf("expected assignment lookup wrapped error, got %v", err)
+	}
+}
+
+func TestGenerateWeekly_TaskLookupError(t *testing.T) {
+	reportRepo := newFakeReportRepo()
+	pdfGen := &fakePDF{}
+	svc := NewReportService(
+		reportRepo,
+		&fakeAssignmentRepo{byProfessor: sampleAssignments()},
+		&fakeTaskRepo{byAssignmentWeek: sampleTasks(), err: errors.New("tasks down")},
+		&fakeAI{response: "ok"},
+		pdfGen,
+	)
+
+	_, err := svc.GenerateWeeklyReports(context.Background(), profID, monday)
+	if err == nil || !strings.Contains(err.Error(), "error obteniendo tareas para vinculación") {
+		t.Fatalf("expected task lookup wrapped error, got %v", err)
+	}
+}
+
+func TestGenerateWeekly_PDFGenerationError(t *testing.T) {
+	reportRepo := newFakeReportRepo()
+	pdfGen := &fakePDF{err: errors.New("pdf failed")}
+	svc := NewReportService(
+		reportRepo,
+		&fakeAssignmentRepo{byProfessor: sampleAssignments()},
+		&fakeTaskRepo{byAssignmentWeek: sampleTasks()},
+		&fakeAI{response: "ok"},
+		pdfGen,
+	)
+
+	_, err := svc.GenerateWeeklyReports(context.Background(), profID, monday)
+	if err == nil || !strings.Contains(err.Error(), "error generando PDF") {
+		t.Fatalf("expected PDF wrapped error, got %v", err)
+	}
+}
+
+func TestGenerateWeekly_ReportSaveError(t *testing.T) {
+	reportRepo := newFakeReportRepo()
+	reportRepo.createErr = errors.New("db insert failed")
+	pdfGen := &fakePDF{}
+	svc := NewReportService(
+		reportRepo,
+		&fakeAssignmentRepo{byProfessor: sampleAssignments()},
+		&fakeTaskRepo{byAssignmentWeek: sampleTasks()},
+		&fakeAI{response: "ok"},
+		pdfGen,
+	)
+
+	_, err := svc.GenerateWeeklyReports(context.Background(), profID, monday)
+	if err == nil || !strings.Contains(err.Error(), "error almacenando reporte") {
+		t.Fatalf("expected report save wrapped error, got %v", err)
 	}
 }
 

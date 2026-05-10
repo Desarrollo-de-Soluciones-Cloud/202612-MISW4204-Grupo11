@@ -107,3 +107,45 @@ jobs:
         timeout-minutes: 5
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: SonarQube Gate Diagnostics
+        if: always()
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          set -euo pipefail
+          report_file=".scannerwork/report-task.txt"
+          if [ ! -f "$report_file" ]; then
+            echo "No $report_file found; skipping diagnostics"
+            exit 0
+          fi
+
+          ce_task_url=$(grep '^ceTaskUrl=' "$report_file" | cut -d'=' -f2-)
+          if [ -z "${ce_task_url:-}" ]; then
+            echo "No ceTaskUrl found in $report_file"
+            exit 0
+          fi
+
+          analysis_id=$(curl -sS -u "${SONAR_TOKEN}:" "$ce_task_url" | python3 -c "import sys,json; print(json.load(sys.stdin).get('task',{}).get('analysisId',''))")
+          if [ -z "${analysis_id:-}" ]; then
+            echo "Analysis ID not available yet; skipping diagnostics"
+            exit 0
+          fi
+
+          curl -sS -u "${SONAR_TOKEN}:" "${SONAR_HOST_URL}/api/qualitygates/project_status?analysisId=${analysis_id}" > qg.json
+          python3 - <<'PY'
+import json
+
+with open("qg.json", "r", encoding="utf-8") as f:
+    data = json.load(f)
+
+status = data.get("projectStatus", {}).get("status", "UNKNOWN")
+print(f"Quality Gate status: {status}")
+for cond in data.get("projectStatus", {}).get("conditions", []):
+    metric = cond.get("metricKey")
+    cstatus = cond.get("status")
+    actual = cond.get("actualValue")
+    comparator = cond.get("comparator")
+    threshold = cond.get("errorThreshold")
+    print(f"- {metric}: {cstatus} (actual={actual} {comparator} threshold={threshold})")
+PY
