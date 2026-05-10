@@ -291,3 +291,100 @@ func TestGetReportFile_WrongProfessor_Forbidden(t *testing.T) {
 func (f *fakeTaskRepo) GetAttachments(_ context.Context, _ int) ([]domain.Attachment, error) {
 	return []domain.Attachment{}, nil
 }
+
+func TestProcessWeeklyReportJob_InvalidWeekStartInPayload(t *testing.T) {
+	svc, _, _ := newTestService(sampleAssignments(), sampleTasks(), &fakeAI{response: "ok"})
+
+	err := svc.ProcessWeeklyReportJob(context.Background(), ports.WeeklyReportJob{
+		RequestID:   "req-1",
+		ProfessorID: profID,
+		WeekStart:   "not-a-date",
+	})
+	if err == nil || !strings.Contains(err.Error(), "week_start inválido") {
+		t.Fatalf("expected invalid week_start error, got %v", err)
+	}
+}
+
+func TestProcessWeeklyReportJob_WeekStartNotMonday(t *testing.T) {
+	svc, _, _ := newTestService(sampleAssignments(), sampleTasks(), &fakeAI{response: "ok"})
+
+	err := svc.ProcessWeeklyReportJob(context.Background(), ports.WeeklyReportJob{
+		RequestID:   "req-2",
+		ProfessorID: profID,
+		WeekStart:   tuesday.Format(time.DateOnly),
+	})
+	if err == nil || !strings.Contains(err.Error(), "error procesando job req-2") {
+		t.Fatalf("expected wrapped processing error, got %v", err)
+	}
+	if !errors.Is(err, domain.ErrSemanaInicioNoEsLunes) {
+		t.Fatalf("expected ErrSemanaInicioNoEsLunes, got %v", err)
+	}
+}
+
+func TestProcessWeeklyReportJob_OK(t *testing.T) {
+	svc, reportRepo, _ := newTestService(sampleAssignments(), sampleTasks(), &fakeAI{response: "ok"})
+
+	err := svc.ProcessWeeklyReportJob(context.Background(), ports.WeeklyReportJob{
+		RequestID:   "req-3",
+		ProfessorID: profID,
+		WeekStart:   monday.Format(time.DateOnly),
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(reportRepo.reports) != 1 {
+		t.Fatalf("expected report to be created, got %d", len(reportRepo.reports))
+	}
+}
+
+func TestListReports_ReturnsProfessorReports(t *testing.T) {
+	svc, reportRepo, _ := newTestService(nil, nil, &fakeAI{})
+	_ = reportRepo.Create(context.Background(), &domain.Report{
+		ProfessorID:  profID,
+		AssignmentID: 1,
+		UserName:     "A",
+		WeekStart:    monday,
+		FilePath:     "/tmp/a.pdf",
+	})
+	_ = reportRepo.Create(context.Background(), &domain.Report{
+		ProfessorID:  999,
+		AssignmentID: 2,
+		UserName:     "B",
+		WeekStart:    monday,
+		FilePath:     "/tmp/b.pdf",
+	})
+
+	reports, err := svc.ListReports(context.Background(), profID)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(reports) != 1 {
+		t.Fatalf("expected 1 report for professor, got %d", len(reports))
+	}
+}
+
+func TestListReportsByWeek_FiltersByWeekAndProfessor(t *testing.T) {
+	svc, reportRepo, _ := newTestService(nil, nil, &fakeAI{})
+	_ = reportRepo.Create(context.Background(), &domain.Report{
+		ProfessorID:  profID,
+		AssignmentID: 1,
+		UserName:     "A",
+		WeekStart:    monday,
+		FilePath:     "/tmp/a.pdf",
+	})
+	_ = reportRepo.Create(context.Background(), &domain.Report{
+		ProfessorID:  profID,
+		AssignmentID: 2,
+		UserName:     "A2",
+		WeekStart:    monday.AddDate(0, 0, 7),
+		FilePath:     "/tmp/a2.pdf",
+	})
+
+	reports, err := svc.ListReportsByWeek(context.Background(), profID, monday)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(reports) != 1 {
+		t.Fatalf("expected 1 report for selected week, got %d", len(reports))
+	}
+}

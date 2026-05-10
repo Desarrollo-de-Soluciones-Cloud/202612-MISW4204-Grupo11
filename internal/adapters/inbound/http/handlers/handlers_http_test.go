@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/admin"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/auth"
+	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/ports"
 	appreports "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/reports"
 	appspaces "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/spaces"
 	apptasks "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/tasks"
@@ -725,6 +727,71 @@ func TestReportHandler_Download_NotFound(t *testing.T) {
 	h.Download(c)
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("code=%d %s", w.Code, w.Body.String())
+	}
+}
+
+type reportStorageStub struct {
+	openReader      io.ReadCloser
+	openContentType string
+	openErr         error
+}
+
+func (s *reportStorageStub) Save(_ context.Context, _, _ string, _ io.Reader) (ports.StoredObject, error) {
+	return ports.StoredObject{}, nil
+}
+
+func (s *reportStorageStub) Open(_ context.Context, _ string) (io.ReadCloser, string, error) {
+	if s.openErr != nil {
+		return nil, "", s.openErr
+	}
+	return s.openReader, s.openContentType, nil
+}
+
+func TestReportHandler_WithStorage_ReturnsSameHandler(t *testing.T) {
+	svc := appreports.NewReportService(
+		newMemoryReportRepo(),
+		&reportFakeAssignmentRepo{},
+		&reportFakeTaskRepo{},
+		&reportFakeAI{},
+		handlerReportPDFStub{},
+	)
+	h := NewReportHandler(svc)
+	storage := &reportStorageStub{}
+
+	got := h.WithStorage(storage)
+	if got != h {
+		t.Fatal("WithStorage should return the same handler pointer")
+	}
+}
+
+func TestReportHandler_Download_WithStorage_DefaultsContentTypeToPDF(t *testing.T) {
+	repo := newMemoryReportRepo()
+	ctx := context.Background()
+	_ = repo.Create(ctx, &domain.Report{
+		ProfessorID: 10, AssignmentID: 1, UserName: "J", UserEmail: "j@x.co",
+		Role: domain.RoleMonitor, WeekStart: handlerTestMonday, FilePath: "reports/r1.pdf", AISummary: "s",
+	})
+	svc := appreports.NewReportService(
+		repo,
+		&reportFakeAssignmentRepo{},
+		&reportFakeTaskRepo{},
+		&reportFakeAI{},
+		handlerReportPDFStub{},
+	)
+	h := NewReportHandler(svc).WithStorage(&reportStorageStub{
+		openReader:      io.NopCloser(strings.NewReader("%PDF-1.4")),
+		openContentType: "",
+	})
+
+	c, w := newJSONContext(http.MethodGet, "/reports/1/download", "", int64(10))
+	c.AddParam("id", "1")
+	h.Download(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("code=%d %s", w.Code, w.Body.String())
+	}
+	if got := w.Header().Get("Content-Type"); !strings.Contains(got, "application/pdf") {
+		t.Fatalf("content-type=%q", got)
 	}
 }
 
