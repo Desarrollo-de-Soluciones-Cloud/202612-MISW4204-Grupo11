@@ -112,9 +112,14 @@ jobs:
         if: always()
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         run: |
           set -euo pipefail
           report_file=".scannerwork/report-task.txt"
+          if [ -z "${SONAR_HOST_URL:-}" ]; then
+            echo "SONAR_HOST_URL is not set; skipping diagnostics"
+            exit 0
+          fi
           if [ ! -f "$report_file" ]; then
             echo "No $report_file found; skipping diagnostics"
             exit 0
