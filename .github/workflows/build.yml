@@ -2,10 +2,6 @@ name: Build
 
 on:
   pull_request:
-    branches:
-      - develop
-      - main
-      - "release/**"
     types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches:
@@ -98,18 +94,26 @@ jobs:
         with:
           name: backend-coverage
 
+      - name: SonarQube prerequisites
+        if: ${{ secrets.SONAR_TOKEN == '' || secrets.SONAR_HOST_URL == '' }}
+        run: |
+          echo "Skipping SonarQube scan and quality gate because SONAR_TOKEN/SONAR_HOST_URL are not configured for this run."
+
       - uses: SonarSource/sonarqube-scan-action@v6
+        if: ${{ secrets.SONAR_TOKEN != '' && secrets.SONAR_HOST_URL != '' }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
       - name: SonarQube Quality Gate
+        if: ${{ secrets.SONAR_TOKEN != '' && secrets.SONAR_HOST_URL != '' }}
         uses: SonarSource/sonarqube-quality-gate-action@v1
         timeout-minutes: 5
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       - name: SonarQube Gate Diagnostics
-        if: always()
+        if: ${{ always() && secrets.SONAR_TOKEN != '' && secrets.SONAR_HOST_URL != '' }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
