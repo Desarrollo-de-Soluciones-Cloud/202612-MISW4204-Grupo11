@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	apptasks "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/tasks"
@@ -47,6 +48,11 @@ func (h *TaskHandler) Create(c *gin.Context) {
 	var req createTaskRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if !isValidTaskStatus(req.Status) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "status inválido, use: abierto, en_desarrollo o finalizado"})
 		return
 	}
 
@@ -171,6 +177,11 @@ func (h *TaskHandler) Update(c *gin.Context) {
 		return
 	}
 
+	if !isValidTaskStatus(req.Status) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "status inválido, use: abierto, en_desarrollo o finalizado"})
+		return
+	}
+
 	taskID, err := strconv.Atoi(taskIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
@@ -211,6 +222,11 @@ func (h *TaskHandler) UpdateField(c *gin.Context) {
 		return
 	}
 
+	if input.Status != nil && !isValidTaskStatus(string(*input.Status)) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "status inválido, use: abierto, en_desarrollo o finalizado"})
+		return
+	}
+
 	task, err := h.service.PartialUpdate(c.Request.Context(), taskID, userID, input)
 	if err != nil {
 		taskMutateError(c, err)
@@ -235,6 +251,11 @@ func (h *TaskHandler) UpdateStatus(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if !isValidTaskStatus(string(payload.Status)) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "status inválido, use: abierto, en_desarrollo o finalizado"})
 		return
 	}
 
@@ -367,4 +388,11 @@ func taskMutateError(c *gin.Context, err error) {
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	}
+}
+
+func isValidTaskStatus(status string) bool {
+	s := strings.TrimSpace(status)
+	return s == string(domain.StatusOpen) ||
+		s == string(domain.StatusInDevelopment) ||
+		s == string(domain.StatusFinalized)
 }

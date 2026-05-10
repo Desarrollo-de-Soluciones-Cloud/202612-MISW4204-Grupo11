@@ -33,9 +33,9 @@ func NewEngine(deps Deps) *gin.Engine {
 
 	router.GET("/health/ready", func(ginCtx *gin.Context) {
 		if readyErr := deps.Readiness.Check(ginCtx.Request.Context()); readyErr != nil {
+			_ = ginCtx.Error(readyErr)
 			ginCtx.JSON(http.StatusServiceUnavailable, gin.H{
 				"status": "unavailable",
-				"error":  readyErr.Error(),
 			})
 			return
 		}
@@ -114,14 +114,6 @@ func NewEngine(deps Deps) *gin.Engine {
 	assignmentsMine.Use(middleware.Autenticar(deps.JWTSecret))
 	assignmentsMine.Use(middleware.ExigeRol(domain.RolMonitor, domain.RolAsistenteGraduado, domain.RolAdministrador))
 	assignmentsMine.GET("/me", deps.Assignments.ListMyAssignments)
-
-	listAssignments := apiV1.Group("userAssignments")
-	listAssignments.Use(middleware.Autenticar(deps.JWTSecret))
-	listAssignments.Use(middleware.ExigeRol(domain.RolAsistenteGraduado, domain.RolMonitor, domain.RolProfesor))
-	{
-		listAssignments.GET("", deps.Assignments.ListMyAssignments)
-		listAssignments.GET("/profesor", deps.Assignments.ListByProfessor)
-	}
 
 	adminTasks := apiV1.Group("/admin/tasks")
 	adminTasks.Use(middleware.Autenticar(deps.JWTSecret))

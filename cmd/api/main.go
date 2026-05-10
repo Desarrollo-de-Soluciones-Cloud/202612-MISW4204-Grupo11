@@ -2,7 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	httpadapter "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/http"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/http/handlers"
@@ -26,6 +32,9 @@ import (
 func main() {
 	log.SetFlags(log.Ltime)
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("config: %v", err)
@@ -36,13 +45,14 @@ func main() {
 	}
 	jwtSecret := []byte(cfg.JWTSecret)
 
-	ctx := context.Background()
-
 	pool, closeDB, err := postgres.NewPool(ctx, cfg.DBURL)
 	if err != nil {
 		log.Fatalf("postgres: %v", err)
 	}
 	defer closeDB()
+	if err := pool.Ping(ctx); err != nil {
+		log.Fatalf("postgres ping: %v", err)
+	}
 
 	db := pool.Pgx()
 	if err := postgres.RunMigrations(ctx, db); err != nil {
@@ -124,10 +134,38 @@ func main() {
 		Reports:     reportHandler,
 	})
 
+	server := &http.Server{
+		Addr:         cfg.HTTPAddr,
+		Handler:      engine,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	httpErrCh := make(chan error, 1)
+	go func() {
+		if serveErr := server.ListenAndServe(); serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+			httpErrCh <- serveErr
+		}
+	}()
+
 	log.Printf("listening %s", cfg.HTTPAddr)
 
-	if err := engine.Run(cfg.HTTPAddr); err != nil {
-		log.Fatalf("http: %v", err)
+	select {
+	case serveErr := <-httpErrCh:
+		log.Fatalf("http: %v", serveErr)
+	case <-ctx.Done():
+		log.Printf("shutdown signal received")
+	}
+
+	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelShutdown()
+
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("http graceful shutdown failed: %v", err)
+		if closeErr := server.Close(); closeErr != nil {
+			log.Printf("http close failed: %v", closeErr)
+		}
 	}
 
 }

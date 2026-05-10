@@ -411,7 +411,7 @@ func newTaskHandlerForTest(t *testing.T) (*TaskHandler, *handlerTaskRepo) {
 
 func TestTaskHandler_Create_Unauthorized(t *testing.T) {
 	h, _ := newTaskHandlerForTest(t)
-	body := `{"title":"t","description":"d","status":"Abierto","week_start":"2026-04-06","time_invested":2,"assignment_id":1}`
+	body := `{"title":"t","description":"d","status":"abierto","week_start":"2026-04-06","time_invested":2,"assignment_id":1}`
 	c, w := newJSONContext(http.MethodPost, "/tasks", body, nil)
 	h.Create(c)
 	if w.Code != http.StatusUnauthorized {
@@ -421,7 +421,7 @@ func TestTaskHandler_Create_Unauthorized(t *testing.T) {
 
 func TestTaskHandler_Create_OK(t *testing.T) {
 	h, _ := newTaskHandlerForTest(t)
-	body := `{"title":"t","description":"d","status":"Abierto","week_start":"2026-04-06","time_invested":2,"assignment_id":1}`
+	body := `{"title":"t","description":"d","status":"abierto","week_start":"2026-04-06","time_invested":2,"assignment_id":1}`
 	c, w := newJSONContext(http.MethodPost, "/tasks", body, int64(1))
 	h.Create(c)
 	if w.Code != http.StatusCreated {
@@ -454,7 +454,7 @@ func TestTaskHandler_GetByID_NotFound(t *testing.T) {
 
 func TestTaskHandler_Update_InvalidTaskID(t *testing.T) {
 	h, _ := newTaskHandlerForTest(t)
-	body := `{"title":"t","description":"d","status":"Abierto","time_invested":2}`
+	body := `{"title":"t","description":"d","status":"abierto","time_invested":2}`
 	c, w := newJSONContext(http.MethodPut, "/tasks/x", body, int64(1))
 	c.AddParam("id", "x")
 	h.Update(c)
@@ -492,7 +492,7 @@ func TestTaskHandler_UpdateStatus_OK(t *testing.T) {
 		Title: "x", Description: "y", Status: domain.StatusOpen,
 		WeekStart: handlerTestMonday, TimeInvested: 2, AssignmentId: 1,
 	})
-	body := `{"status":"Finalizado"}`
+	body := `{"status":"finalizado"}`
 	c, w := newJSONContext(http.MethodPatch, "/tasks/1/status", body, int64(1))
 	c.AddParam("id", "1")
 	h.UpdateStatus(c)
@@ -1106,7 +1106,7 @@ func TestAssignment_UpdateByAdmin_NotFound(t *testing.T) {
 
 func TestTaskHandler_AuthUserWrongType(t *testing.T) {
 	h, _ := newTaskHandlerForTest(t)
-	body := `{"title":"t","description":"d","status":"Abierto","week_start":"2026-04-06","time_invested":2,"assignment_id":1}`
+	body := `{"title":"t","description":"d","status":"abierto","week_start":"2026-04-06","time_invested":2,"assignment_id":1}`
 	c, w := newJSONContext(http.MethodPost, "/tasks", body, "not-int64")
 	h.Create(c)
 	if w.Code != http.StatusUnauthorized {
@@ -1125,7 +1125,7 @@ func TestTaskHandler_Create_InvalidJSON(t *testing.T) {
 
 func TestTaskHandler_Create_InvalidWeekStart(t *testing.T) {
 	h, _ := newTaskHandlerForTest(t)
-	body := `{"title":"t","description":"d","status":"Abierto","week_start":"not-a-date","time_invested":2,"assignment_id":1}`
+	body := `{"title":"t","description":"d","status":"abierto","week_start":"not-a-date","time_invested":2,"assignment_id":1}`
 	c, w := newJSONContext(http.MethodPost, "/tasks", body, int64(1))
 	h.Create(c)
 	if w.Code != http.StatusBadRequest {
@@ -1135,7 +1135,7 @@ func TestTaskHandler_Create_InvalidWeekStart(t *testing.T) {
 
 func TestTaskHandler_Create_WeekNotMonday(t *testing.T) {
 	h, _ := newTaskHandlerForTest(t)
-	body := `{"title":"t","description":"d","status":"Abierto","week_start":"2026-04-07","time_invested":2,"assignment_id":1}`
+	body := `{"title":"t","description":"d","status":"abierto","week_start":"2026-04-07","time_invested":2,"assignment_id":1}`
 	c, w := newJSONContext(http.MethodPost, "/tasks", body, int64(1))
 	h.Create(c)
 	if w.Code != http.StatusBadRequest {
@@ -1145,7 +1145,7 @@ func TestTaskHandler_Create_WeekNotMonday(t *testing.T) {
 
 func TestTaskHandler_Create_FutureWeek(t *testing.T) {
 	h, _ := newTaskHandlerForTest(t)
-	body := `{"title":"t","description":"d","status":"Abierto","week_start":"2026-04-13","time_invested":2,"assignment_id":1}`
+	body := `{"title":"t","description":"d","status":"abierto","week_start":"2026-04-13","time_invested":2,"assignment_id":1}`
 	c, w := newJSONContext(http.MethodPost, "/tasks", body, int64(1))
 	h.Create(c)
 	if w.Code != http.StatusBadRequest {
@@ -1155,7 +1155,7 @@ func TestTaskHandler_Create_FutureWeek(t *testing.T) {
 
 func TestTaskHandler_Create_AssignmentNotOwned(t *testing.T) {
 	h, _ := newTaskHandlerForTest(t)
-	body := `{"title":"t","description":"d","status":"Abierto","week_start":"2026-04-06","time_invested":2,"assignment_id":1}`
+	body := `{"title":"t","description":"d","status":"abierto","week_start":"2026-04-06","time_invested":2,"assignment_id":1}`
 	c, w := newJSONContext(http.MethodPost, "/tasks", body, int64(2))
 	h.Create(c)
 	if w.Code != http.StatusForbidden {
@@ -1165,7 +1165,7 @@ func TestTaskHandler_Create_AssignmentNotOwned(t *testing.T) {
 
 func TestTaskHandler_Create_AssignmentMissing(t *testing.T) {
 	h, _ := newTaskHandlerForTest(t)
-	body := `{"title":"t","description":"d","status":"Abierto","week_start":"2026-04-06","time_invested":2,"assignment_id":99}`
+	body := `{"title":"t","description":"d","status":"abierto","week_start":"2026-04-06","time_invested":2,"assignment_id":99}`
 	c, w := newJSONContext(http.MethodPost, "/tasks", body, int64(1))
 	h.Create(c)
 	if w.Code != http.StatusBadRequest {
@@ -1175,7 +1175,17 @@ func TestTaskHandler_Create_AssignmentMissing(t *testing.T) {
 
 func TestTaskHandler_Create_EmptyTitle(t *testing.T) {
 	h, _ := newTaskHandlerForTest(t)
-	body := `{"title":"   ","description":"d","status":"Abierto","week_start":"2026-04-06","time_invested":2,"assignment_id":1}`
+	body := `{"title":"   ","description":"d","status":"abierto","week_start":"2026-04-06","time_invested":2,"assignment_id":1}`
+	c, w := newJSONContext(http.MethodPost, "/tasks", body, int64(1))
+	h.Create(c)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("code=%d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestTaskHandler_Create_InvalidStatus(t *testing.T) {
+	h, _ := newTaskHandlerForTest(t)
+	body := `{"title":"t","description":"d","status":"Abierto","week_start":"2026-04-06","time_invested":2,"assignment_id":1}`
 	c, w := newJSONContext(http.MethodPost, "/tasks", body, int64(1))
 	h.Create(c)
 	if w.Code != http.StatusBadRequest {
@@ -1285,7 +1295,7 @@ func TestTaskHandler_UpdateStatus_BindError(t *testing.T) {
 
 func TestTaskHandler_UpdateStatus_InvalidID(t *testing.T) {
 	h, _ := newTaskHandlerForTest(t)
-	body := `{"status":"Finalizado"}`
+	body := `{"status":"finalizado"}`
 	c, w := newJSONContext(http.MethodPatch, "/tasks/x/status", body, int64(1))
 	c.AddParam("id", "x")
 	h.UpdateStatus(c)
@@ -1294,9 +1304,24 @@ func TestTaskHandler_UpdateStatus_InvalidID(t *testing.T) {
 	}
 }
 
+func TestTaskHandler_UpdateStatus_InvalidStatus(t *testing.T) {
+	h, repo := newTaskHandlerForTest(t)
+	_ = repo.Create(&domain.Task{
+		Title: "x", Description: "y", Status: domain.StatusOpen,
+		WeekStart: handlerTestMonday, TimeInvested: 2, AssignmentId: 1,
+	})
+	body := `{"status":"Finalizado"}`
+	c, w := newJSONContext(http.MethodPatch, "/tasks/1/status", body, int64(1))
+	c.AddParam("id", "1")
+	h.UpdateStatus(c)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("code=%d %s", w.Code, w.Body.String())
+	}
+}
+
 func TestTaskHandler_Delete_LateNotAllowed(t *testing.T) {
 	h, _ := newTaskHandlerForTest(t)
-	body := `{"title":"late","description":"d","status":"Abierto","week_start":"2026-03-30","time_invested":2,"assignment_id":1}`
+	body := `{"title":"late","description":"d","status":"abierto","week_start":"2026-03-30","time_invested":2,"assignment_id":1}`
 	c0, w0 := newJSONContext(http.MethodPost, "/tasks", body, int64(1))
 	h.Create(c0)
 	if w0.Code != http.StatusCreated {
@@ -1312,13 +1337,13 @@ func TestTaskHandler_Delete_LateNotAllowed(t *testing.T) {
 
 func TestTaskHandler_Update_LateImmutable(t *testing.T) {
 	h, _ := newTaskHandlerForTest(t)
-	body := `{"title":"late","description":"d","status":"Abierto","week_start":"2026-03-30","time_invested":2,"assignment_id":1}`
+	body := `{"title":"late","description":"d","status":"abierto","week_start":"2026-03-30","time_invested":2,"assignment_id":1}`
 	c0, w0 := newJSONContext(http.MethodPost, "/tasks", body, int64(1))
 	h.Create(c0)
 	if w0.Code != http.StatusCreated {
 		t.Fatalf("create: %d %s", w0.Code, w0.Body.String())
 	}
-	upd := `{"title":"z","description":"y","status":"Abierto","time_invested":2}`
+	upd := `{"title":"z","description":"y","status":"abierto","time_invested":2}`
 	c, w := newJSONContext(http.MethodPut, "/tasks/1", upd, int64(1))
 	c.AddParam("id", "1")
 	h.Update(c)
