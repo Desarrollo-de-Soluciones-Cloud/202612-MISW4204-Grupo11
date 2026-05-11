@@ -38,6 +38,8 @@ type updateTaskRequest struct {
 	Observations string `json:"observations"`
 }
 
+const taskStatusInvalidError = "status inválido, use: abierto, en_desarrollo o finalizado"
+
 func (h *TaskHandler) Create(c *gin.Context) {
 	userID, ok := professorIDFromContext(c)
 	if !ok {
@@ -52,7 +54,7 @@ func (h *TaskHandler) Create(c *gin.Context) {
 	}
 
 	if !isValidTaskStatus(req.Status) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "status inválido, use: abierto, en_desarrollo o finalizado"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": taskStatusInvalidError})
 		return
 	}
 
@@ -178,7 +180,7 @@ func (h *TaskHandler) Update(c *gin.Context) {
 	}
 
 	if !isValidTaskStatus(req.Status) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "status inválido, use: abierto, en_desarrollo o finalizado"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": taskStatusInvalidError})
 		return
 	}
 
@@ -223,7 +225,7 @@ func (h *TaskHandler) UpdateField(c *gin.Context) {
 	}
 
 	if input.Status != nil && !isValidTaskStatus(string(*input.Status)) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "status inválido, use: abierto, en_desarrollo o finalizado"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": taskStatusInvalidError})
 		return
 	}
 
@@ -255,7 +257,7 @@ func (h *TaskHandler) UpdateStatus(c *gin.Context) {
 	}
 
 	if !isValidTaskStatus(string(payload.Status)) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "status inválido, use: abierto, en_desarrollo o finalizado"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": taskStatusInvalidError})
 		return
 	}
 
