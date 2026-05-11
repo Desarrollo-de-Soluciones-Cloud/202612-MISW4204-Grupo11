@@ -72,5 +72,8 @@ func (s *Storage) Open(ctx context.Context, storedPath string) (io.ReadCloser, s
 }
 
 func (s *Storage) Close() error {
+	if s == nil || s.client == nil {
+		return nil
+	}
 	return s.client.Close()
 }

@@ -20,8 +20,8 @@ var (
 type Status string
 
 const (
-	StatusOpen          Status = "Abierto"
-	StatusInDevelopment Status = "En desarrollo"
+	StatusOpen          Status = "abierto"
+	StatusInDevelopment Status = "en_desarrollo"
 	StatusFinalized     Status = "finalizado"
 )
 

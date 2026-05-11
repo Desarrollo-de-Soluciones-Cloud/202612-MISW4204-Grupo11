@@ -252,6 +252,45 @@ func TestNuevoMotor_HealthReadyUnavailable(t *testing.T) {
 	if rr.Code != http.StatusServiceUnavailable {
 		t.Fatalf("expected status %d, got %d", http.StatusServiceUnavailable, rr.Code)
 	}
+
+	var payload map[string]string
+	if err := json.NewDecoder(rr.Body).Decode(&payload); err != nil {
+		t.Fatalf("failed to decode body: %v", err)
+	}
+	if payload["status"] != "unavailable" {
+		t.Fatalf("expected status %q, got %q", "unavailable", payload["status"])
+	}
+	if _, exists := payload["error"]; exists {
+		t.Fatalf("unexpected internal error details exposed in readiness response")
+	}
+}
+
+func TestNuevoMotor_LegacyUserAssignmentsRouteRemoved(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	readiness := &application.Readiness{DB: fakePinger{err: nil}}
+	handler := handlers.NewTaskHandler(apptasks.NewTaskService(fakeTaskRepo{}, fakeAssignmentRepoForRoutes{}))
+	deps := Deps{
+		Readiness:   readiness,
+		JWTSecret:   []byte("test-secret"),
+		Auth:        &handlers.Auth{},
+		Users:       &handlers.Users{},
+		Admin:       testAdminHandler(),
+		TaskHandler: handler,
+		AcadSpaces:  &handlers.AcademicSpaceHandler{},
+		Periods:     &handlers.AcademicPeriodHandler{},
+		Assignments: &handlers.AssignmentHandler{},
+		Reports:     &handlers.ReportHandler{},
+	}
+	engine := NewEngine(deps)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/userAssignments", nil)
+	rr := httptest.NewRecorder()
+	engine.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d", http.StatusNotFound, rr.Code)
+	}
 }
 
 var errTestPing = &testPingError{}

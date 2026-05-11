@@ -2,7 +2,14 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	httpadapter "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/http"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/http/handlers"
@@ -23,32 +30,79 @@ import (
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/config"
 )
 
+type appResources struct {
+	server     *http.Server
+	rabbitmq   *messaging.RabbitMQ
+	closeDB    func()
+	closeStore func()
+}
+
 func main() {
 	log.SetFlags(log.Ltime)
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := run(ctx); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run(ctx context.Context) error {
+	cfg, err := loadConfig()
+	if err != nil {
+		return err
+	}
+
+	resources, err := buildResources(ctx, cfg)
+	if err != nil {
+		return err
+	}
+	defer resources.rabbitmq.Close()
+	defer resources.closeStore()
+	defer resources.closeDB()
+
+	if err := runServer(ctx, cfg.HTTPAddr, resources.server); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func loadConfig() (config.Config, error) {
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("config: %v", err)
+		return config.Config{}, fmt.Errorf("config: %w", err)
 	}
-
 	if cfg.JWTSecret == "" {
-		log.Fatal("JWT_SECRET is required")
+		return config.Config{}, fmt.Errorf("JWT_SECRET is required")
 	}
-	jwtSecret := []byte(cfg.JWTSecret)
+	return cfg, nil
+}
 
-	ctx := context.Background()
-
+func buildResources(ctx context.Context, cfg config.Config) (appResources, error) {
 	pool, closeDB, err := postgres.NewPool(ctx, cfg.DBURL)
 	if err != nil {
-		log.Fatalf("postgres: %v", err)
+		return appResources{}, fmt.Errorf("postgres: %w", err)
 	}
-	defer closeDB()
+	if err := pool.Ping(ctx); err != nil {
+		closeDB()
+		return appResources{}, fmt.Errorf("postgres ping: %w", err)
+	}
 
 	db := pool.Pgx()
 	if err := postgres.RunMigrations(ctx, db); err != nil {
-		log.Fatalf("migrations: %v", err)
+		closeDB()
+		return appResources{}, fmt.Errorf("migrations: %w", err)
 	}
 
+	fileStorage, closeStore, err := initStorage(ctx, cfg)
+	if err != nil {
+		closeDB()
+		return appResources{}, err
+	}
+
+	jwtSecret := []byte(cfg.JWTSecret)
 	userRepo := postgres.NewUserRepository(db)
 	loginSvc := &auth.LoginService{Users: userRepo, Secret: jwtSecret}
 	adminSvc := &appusers.AdminService{Users: userRepo}
@@ -64,24 +118,6 @@ func main() {
 	assignmentSvc := appspaces.NewAssignmentService(assignmentRepo, spaceRepo, periodRepo, appspaces.NoOpHourRuleChecker{})
 	assignmentHandler := handlers.NewAssignmentHandler(assignmentSvc)
 
-	readiness := &application.Readiness{DB: pool}
-
-	var fileStorage ports.FileStorage
-	switch cfg.StorageProvider {
-	case "gcs":
-		if cfg.GCSBucket == "" {
-			log.Fatal("GCS_BUCKET is required when STORAGE_PROVIDER=gcs")
-		}
-		gcsClient, err := gcsstorage.NewStorage(ctx, cfg.GCSBucket)
-		if err != nil {
-			log.Fatalf("gcs storage: %v", err)
-		}
-		defer gcsClient.Close()
-		fileStorage = gcsClient
-	default:
-		fileStorage = localstorage.NewStorage(cfg.StorageLocalDir)
-	}
-
 	taskRepo := postgres.NewTaskRepository(db)
 	taskService := apptasks.NewTaskService(taskRepo, assignmentRepo).WithFileStorage(fileStorage)
 	taskHandler := handlers.NewTaskHandler(taskService)
@@ -91,15 +127,20 @@ func main() {
 	pdfGenerator := pdf.NewGenerator(fileStorage, cfg.GCSReportsPrefix)
 	reportRepo := postgres.NewReportRepo(pool)
 	reportService := appreports.NewReportService(reportRepo, assignmentRepo, taskRepo, ollamaClient, pdfGenerator)
+
 	rabbitmqClient, err := messaging.NewRabbitMQ(cfg.BrokerURL, cfg.BrokerExchange, cfg.BrokerQueue, cfg.BrokerRoutingKey)
 	if err != nil {
-		log.Fatalf("rabbitmq: %v", err)
+		closeStore()
+		closeDB()
+		return appResources{}, fmt.Errorf("rabbitmq: %w", err)
 	}
-	defer rabbitmqClient.Close()
 	reportSubmitService := appreports.NewSubmitService(rabbitmqClient)
 	reportHandler := handlers.NewReportHandler(reportService, reportSubmitService).WithStorage(fileStorage)
 	if err := rabbitmqClient.ConsumeWeeklyReportJobs(ctx, reportService.ProcessWeeklyReportJob); err != nil {
-		log.Fatalf("rabbitmq consumer: %v", err)
+		rabbitmqClient.Close()
+		closeStore()
+		closeDB()
+		return appResources{}, fmt.Errorf("rabbitmq consumer: %w", err)
 	}
 
 	platformOverview := appadmin.NewPlatformOverviewService(
@@ -111,6 +152,7 @@ func main() {
 	)
 	adminHandler := handlers.NewAdminHandler(platformOverview)
 
+	readiness := &application.Readiness{DB: pool}
 	engine := httpadapter.NewEngine(httpadapter.Deps{
 		Readiness:   readiness,
 		JWTSecret:   jwtSecret,
@@ -124,10 +166,64 @@ func main() {
 		Reports:     reportHandler,
 	})
 
-	log.Printf("listening %s", cfg.HTTPAddr)
-
-	if err := engine.Run(cfg.HTTPAddr); err != nil {
-		log.Fatalf("http: %v", err)
+	server := &http.Server{
+		Addr:         cfg.HTTPAddr,
+		Handler:      engine,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
+	return appResources{
+		server:     server,
+		rabbitmq:   rabbitmqClient,
+		closeDB:    closeDB,
+		closeStore: closeStore,
+	}, nil
+}
+
+func initStorage(ctx context.Context, cfg config.Config) (ports.FileStorage, func(), error) {
+	switch cfg.StorageProvider {
+	case "gcs":
+		if cfg.GCSBucket == "" {
+			return nil, func() {}, fmt.Errorf("GCS_BUCKET is required when STORAGE_PROVIDER=gcs")
+		}
+		gcsClient, err := gcsstorage.NewStorage(ctx, cfg.GCSBucket)
+		if err != nil {
+			return nil, func() {}, fmt.Errorf("gcs storage: %w", err)
+		}
+		return gcsClient, func() { gcsClient.Close() }, nil
+	default:
+		return localstorage.NewStorage(cfg.StorageLocalDir), func() {}, nil
+	}
+}
+
+func runServer(ctx context.Context, httpAddr string, server *http.Server) error {
+	httpErrCh := make(chan error, 1)
+	go func() {
+		if serveErr := server.ListenAndServe(); serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+			httpErrCh <- serveErr
+		}
+	}()
+
+	log.Printf("listening %s", httpAddr)
+
+	select {
+	case serveErr := <-httpErrCh:
+		return fmt.Errorf("http: %w", serveErr)
+	case <-ctx.Done():
+		log.Printf("shutdown signal received")
+	}
+
+	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelShutdown()
+
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("http graceful shutdown failed: %v", err)
+		if closeErr := server.Close(); closeErr != nil {
+			log.Printf("http close failed: %v", closeErr)
+		}
+	}
+
+	return nil
 }

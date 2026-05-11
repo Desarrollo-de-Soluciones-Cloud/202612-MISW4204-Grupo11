@@ -25,25 +25,48 @@ Este repositorio es el espacio de trabajo del **Grupo 11** para el proyecto del 
 
 ### Cómo correrlo localmente en tu PC
 
-1. Levanta dependencias base (**PostgreSQL + RabbitMQ**):
+1. Abre una terminal y ve a la raíz del proyecto:
 
-   ```bash
-   docker compose up postgres rabbitmq
+   ```powershell
+   cd <raiz-del-proyecto>
    ```
 
-2. Cuando el contenedor esté *healthy*, en **otra terminal** (desde la raíz del repo), define `JWT_SECRET` y arranca:
+2. Levanta dependencias base (**PostgreSQL + RabbitMQ + Ollama**) en segundo plano:
+
+   ```bash
+   docker compose up -d postgres rabbitmq ollama
+   ```
+
+3. Verifica estado de contenedores (espera a que estén *healthy*):
+
+   ```bash
+   docker compose ps
+   ```
+
+4. En **otra terminal** (también desde la raíz del proyecto), define variables y arranca:
 
    ```powershell
    $env:JWT_SECRET="desarrollo-cambia-esto-por-algo-largo-y-secreto"
+   $env:DATABASE_URL="postgres://app:app@127.0.0.1:5432/app?sslmode=disable"
+   $env:BROKER_URL="amqp://guest:guest@127.0.0.1:5672/"
    go run ./cmd/api
    ```
 
    Si no defines `DATABASE_URL`, el programa usa por defecto `127.0.0.1:5432` con usuario/clave `app` (igual que en `docker-compose.yml`).
    Para reportes asíncronos también usa por defecto RabbitMQ en `amqp://guest:guest@localhost:5672/`.
 
-3. Salud: [http://localhost:8080/health](http://localhost:8080/health) y [http://localhost:8080/health/ready](http://localhost:8080/health/ready).
+5. Salud: [http://localhost:8080/health](http://localhost:8080/health) y [http://localhost:8080/health/ready](http://localhost:8080/health/ready).
 
-4. **Primer administrador (base vacía)**  
+6. Para apagar todo:
+
+   - En la terminal del API: `Ctrl + C`
+   - Dependencias Docker:
+
+   ```bash
+   docker compose down
+   ```
+
+7. **Primer administrador (base vacía)**  
    Con `users` vacío, llama `POST /api/v1/users` **sin** token. El JSON debe incluir el rol `administrador` (y la contraseña ≥ 8 caracteres). Ejemplo:
 
    ```json
@@ -57,14 +80,14 @@ Este repositorio es el espacio de trabajo del **Grupo 11** para el proyecto del 
 
    Después puedes hacer `POST /api/v1/auth/login` y usar el token para crear más usuarios o listar con `GET /api/v1/users`.
 
-5. **Autenticación y usuarios**
+8. **Autenticación y usuarios**
    - `POST /api/v1/auth/login` — body: `email`, `password` → `token` + `user`.  
    - `POST /api/v1/users` — si ya hay usuarios: `Authorization: Bearer <token>` de un **administrador**; si no hay ningún usuario: sin token, pero `roles` debe incluir `administrador`.  
    - `GET /api/v1/users` — siempre token de administrador.
 
    Roles globales válidos: `administrador`, `profesor`, `monitor`, `asistente_graduado`.
 
-6. **Reportes semanales (asíncronos con broker)**
+9. **Reportes semanales (asíncronos con broker)**
    - `POST /api/v1/reports/weekly` — encola la generación y responde `202 Accepted` con `request_id`.
    - `GET /api/v1/reports` — lista reportes generados/persistidos.
    - `GET /api/v1/reports?week_start=YYYY-MM-DD` — lista filtrada por semana.
@@ -87,6 +110,14 @@ go vet ./...
 ```
 
 ### Todo con Docker (API + Postgres + RabbitMQ + Ollama)
+
+Antes de levantar contenedores, crea tu `.env` local a partir de [.env.example](.env.example) y define como mínimo: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DATABASE_URL` y `JWT_SECRET`.
+
+Ejemplo rápido (PowerShell):
+
+```powershell
+Copy-Item .env.example .env
+```
 
 ```bash
 docker compose up --build
