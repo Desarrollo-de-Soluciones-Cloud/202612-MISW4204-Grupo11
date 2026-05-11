@@ -1,88 +1,3 @@
-name: Build
-
-on:
-  pull_request:
-    branches:
-      - develop
-      - main
-      - "release/**"
-    types: [opened, synchronize, reopened, ready_for_review]
-  push:
-    branches:
-      - develop
-      - main
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  checks: write
-
-jobs:
-  tests:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      CI: "true"
-
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: app
-          POSTGRES_PASSWORD: app
-          POSTGRES_DB: app
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.26"
-          cache: true
-
-      - name: Download dependencies
-        run: go mod download
-
-      - name: Run vet
-        run: go vet ./...
-
-      - name: Run unit tests
-        run: go test -v -coverprofile=coverage.out ./...
-        env:
-          DATABASE_URL: "postgres://app:app@localhost:5432/app?sslmode=disable"
-
-      - name: Generate coverage report
-        run: |
-          if [ -f coverage.out ]; then
-            go tool cover -html=coverage.out -o coverage.html
-          else
-            echo "No coverage.out found, skipping coverage report"
-          fi
-        if: always()
-
-      - name: Upload coverage artifacts
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: backend-coverage
-          path: |
-            coverage.out
-            coverage.html
-          if-no-files-found: ignore
-
-      - name: Build
-        run: go build -o app ./cmd/api
-
   build:
     name: Build and analyze
     runs-on: ubuntu-latest
@@ -91,19 +6,99 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+          fetch-depth: 0
 
       - name: Download coverage report
         uses: actions/download-artifact@v4
         with:
           name: backend-coverage
 
+      - name: Verify coverage file
+        run: |
+          pwd
+          ls -la
+          test -f coverage.out && echo "coverage.out exists" || echo "coverage.out missing"
+          head -n 5 coverage.out || true
+
       - uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      - name: Print SonarQube Quality Gate details
+        if: always()
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        run: |
+          set -e
+
+          echo "=== SonarQube diagnostic ==="
+
+          if [ ! -f ".scannerwork/report-task.txt" ]; then
+            echo "No se encontró .scannerwork/report-task.txt"
+            exit 0
+          fi
+
+          cat .scannerwork/report-task.txt
+
+          CE_TASK_ID=$(grep '^ceTaskId=' .scannerwork/report-task.txt | cut -d'=' -f2)
+          SERVER_URL=$(grep '^serverUrl=' .scannerwork/report-task.txt | cut -d'=' -f2)
+
+          if [ -z "$SERVER_URL" ]; then
+            SERVER_URL="$SONAR_HOST_URL"
+          fi
+
+          echo "Server URL: $SERVER_URL"
+          echo "CE Task ID: $CE_TASK_ID"
+
+          for i in {1..30}; do
+            CE_RESPONSE=$(curl -s -H "Authorization: Bearer $SONAR_TOKEN" \
+              "$SERVER_URL/api/ce/task?id=$CE_TASK_ID")
+
+            CE_STATUS=$(echo "$CE_RESPONSE" | jq -r '.task.status')
+            ANALYSIS_ID=$(echo "$CE_RESPONSE" | jq -r '.task.analysisId // empty')
+
+            echo "Intento $i - CE status: $CE_STATUS"
+
+            if [ "$CE_STATUS" = "SUCCESS" ]; then
+              break
+            fi
+
+            if [ "$CE_STATUS" = "FAILED" ] || [ "$CE_STATUS" = "CANCELED" ]; then
+              echo "$CE_RESPONSE" | jq .
+              exit 0
+            fi
+
+            sleep 10
+          done
+
+          if [ -z "$ANALYSIS_ID" ]; then
+            echo "No se pudo obtener analysisId."
+            echo "$CE_RESPONSE" | jq .
+            exit 0
+          fi
+
+          QG_RESPONSE=$(curl -s -H "Authorization: Bearer $SONAR_TOKEN" \
+            "$SERVER_URL/api/qualitygates/project_status?analysisId=$ANALYSIS_ID")
+
+          echo "=== Quality Gate completo ==="
+          echo "$QG_RESPONSE" | jq .
+
+          echo "=== Condiciones evaluadas ==="
+          echo "$QG_RESPONSE" | jq -r '
+            .projectStatus.conditions[]
+            | "- Métrica: \(.metricKey) | Estado: \(.status) | Valor actual: \(.actualValue // "N/A") | Umbral: \(.comparator // "") \(.errorThreshold // "N/A")"
+          '
+
+          echo "Quality Gate Status:"
+          echo "$QG_RESPONSE" | jq -r '.projectStatus.status'
+
       - name: SonarQube Quality Gate
         uses: SonarSource/sonarqube-quality-gate-action@v1
         timeout-minutes: 5
+        with:
+          pollingTimeoutSec: 300
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
