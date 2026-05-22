@@ -9,8 +9,8 @@ import (
 func TestLoad_Defaults(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
 	t.Setenv("HTTP_ADDR", "")
-	t.Setenv("OLLAMA_URL", "")
-	t.Setenv("OLLAMA_MODEL", "")
+	t.Setenv("GROQ_API_KEY", "")
+	t.Setenv("GROQ_MODEL", "")
 	t.Setenv("BROKER_URL", "")
 	t.Setenv("BROKER_EXCHANGE", "")
 	t.Setenv("BROKER_QUEUE", "")
@@ -30,8 +30,11 @@ func TestLoad_Defaults(t *testing.T) {
 	if c.DBURL == "" {
 		t.Fatal("expected default DBURL")
 	}
-	if c.OllamaURL != "http://localhost:11434" || c.OllamaModel != "llama3.2" {
-		t.Fatalf("ollama defaults: %q %q", c.OllamaURL, c.OllamaModel)
+	if c.GroqAPIKey != "" {
+		t.Fatalf("expected empty GroqAPIKey, got %q", c.GroqAPIKey)
+	}
+	if c.GroqModel != "llama-3.1-8b-instant" {
+		t.Fatalf("groq model default: %q", c.GroqModel)
 	}
 	if c.BrokerURL == "" || c.BrokerExchange == "" || c.BrokerQueue == "" || c.BrokerRoutingKey == "" {
 		t.Fatalf("broker defaults: %+v", c)
@@ -45,8 +48,8 @@ func TestLoad_CustomEnv(t *testing.T) {
 	t.Setenv("JWT_SECRET", "x")
 	t.Setenv("HTTP_ADDR", ":9090")
 	t.Setenv("DATABASE_URL", "postgres://custom")
-	t.Setenv("OLLAMA_URL", "http://ollama:11434")
-	t.Setenv("OLLAMA_MODEL", "mistral")
+	t.Setenv("GROQ_API_KEY", "gsk_test123")
+	t.Setenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 	t.Setenv("BROKER_URL", "amqp://rabbitmq:5672/")
 	t.Setenv("BROKER_EXCHANGE", "reports.ex")
 	t.Setenv("BROKER_QUEUE", "reports.q")
@@ -63,8 +66,8 @@ func TestLoad_CustomEnv(t *testing.T) {
 	if c.HTTPAddr != ":9090" || c.DBURL != "postgres://custom" {
 		t.Fatalf("%+v", c)
 	}
-	if c.OllamaURL != "http://ollama:11434" || c.OllamaModel != "mistral" {
-		t.Fatalf("ollama %+v", c)
+	if c.GroqAPIKey != "gsk_test123" || c.GroqModel != "llama-3.3-70b-versatile" {
+		t.Fatalf("groq %+v", c)
 	}
 	if c.BrokerURL != "amqp://rabbitmq:5672/" ||
 		c.BrokerExchange != "reports.ex" ||
