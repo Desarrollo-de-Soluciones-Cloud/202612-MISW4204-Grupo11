@@ -12,8 +12,8 @@ type Config struct {
 	HTTPAddr         string
 	DBURL            string
 	JWTSecret        string
-	OllamaURL        string
-	OllamaModel      string
+	GroqAPIKey       string
+	GroqModel        string
 	StorageProvider  string
 	StorageLocalDir  string
 	GCSBucket        string
@@ -40,8 +40,8 @@ func Load() (Config, error) {
 		config.DBURL = defaultLocalPostgresURL
 	}
 
-	config.OllamaURL = envOrDefault("OLLAMA_URL", "http://localhost:11434")
-	config.OllamaModel = envOrDefault("OLLAMA_MODEL", "llama3.2")
+	config.GroqAPIKey = os.Getenv("GROQ_API_KEY")
+	config.GroqModel = envOrDefault("GROQ_MODEL", "llama-3.1-8b-instant")
 	config.StorageProvider = envOrDefault("STORAGE_PROVIDER", "local")
 	config.StorageLocalDir = envOrDefault("STORAGE_LOCAL_DIR", "./uploads")
 	config.GCSBucket = os.Getenv("GCS_BUCKET")
