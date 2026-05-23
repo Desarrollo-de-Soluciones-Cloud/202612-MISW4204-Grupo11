@@ -109,7 +109,7 @@ go test ./...
 go vet ./...
 ```
 
-### Todo con Docker (API + Postgres + RabbitMQ + Ollama)
+### Todo con Docker (API + worker de reportes + Postgres + RabbitMQ + Ollama)
 
 Antes de levantar contenedores, crea tu `.env` local a partir de [.env.example](.env.example) y define como mínimo: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DATABASE_URL` y `JWT_SECRET`.
 
@@ -124,6 +124,8 @@ docker compose up --build
 ```
 
 Mismas rutas: `GET /health` y `GET /health/ready`.
+
+El proceso de reportes corre en el servicio `worker-reports`, separado de la API.
 
 Variables: [.env.example](.env.example).
 
