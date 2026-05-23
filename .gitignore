@@ -32,3 +32,6 @@ projectFilesBackup*/
 # OS
 .DS_Store
 Thumbs.db
+
+# Coverage artifacts (local only)
+coverage_*.out
