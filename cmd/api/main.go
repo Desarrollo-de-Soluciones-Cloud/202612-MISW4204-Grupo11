@@ -32,7 +32,7 @@ import (
 
 type appResources struct {
 	server     *http.Server
-	rabbitmq   *messaging.RabbitMQ
+	pubsub     *messaging.PubSubClient
 	closeDB    func()
 	closeStore func()
 }
@@ -58,7 +58,7 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer resources.rabbitmq.Close()
+	defer resources.pubsub.Close()
 	defer resources.closeStore()
 	defer resources.closeDB()
 
@@ -127,19 +127,19 @@ func buildResources(ctx context.Context, cfg config.Config) (appResources, error
 	reportRepo := postgres.NewReportRepo(pool)
 	reportService := appreports.NewReportService(reportRepo, assignmentRepo, taskRepo, groqClient, pdfGenerator)
 
-	rabbitmqClient, err := messaging.NewRabbitMQ(cfg.BrokerURL, cfg.BrokerExchange, cfg.BrokerQueue, cfg.BrokerRoutingKey)
+	pubsubClient, err := messaging.NewPubSubClient(ctx, cfg.PubSubProjectID, cfg.PubSubTopicID, cfg.PubSubSubscriptionID)
 	if err != nil {
 		closeStore()
 		closeDB()
-		return appResources{}, fmt.Errorf("rabbitmq: %w", err)
+		return appResources{}, fmt.Errorf("pubsub: %w", err)
 	}
-	reportSubmitService := appreports.NewSubmitService(rabbitmqClient)
+	reportSubmitService := appreports.NewSubmitService(pubsubClient)
 	reportHandler := handlers.NewReportHandler(reportService, reportSubmitService).WithStorage(fileStorage)
-	if err := rabbitmqClient.ConsumeWeeklyReportJobs(ctx, reportService.ProcessWeeklyReportJob); err != nil {
-		rabbitmqClient.Close()
+	if err := pubsubClient.ConsumeWeeklyReportJobs(ctx, reportService.ProcessWeeklyReportJob); err != nil {
+		pubsubClient.Close()
 		closeStore()
 		closeDB()
-		return appResources{}, fmt.Errorf("rabbitmq consumer: %w", err)
+		return appResources{}, fmt.Errorf("pubsub consumer: %w", err)
 	}
 
 	platformOverview := appadmin.NewPlatformOverviewService(
@@ -175,7 +175,7 @@ func buildResources(ctx context.Context, cfg config.Config) (appResources, error
 
 	return appResources{
 		server:     server,
-		rabbitmq:   rabbitmqClient,
+		pubsub:     pubsubClient,
 		closeDB:    closeDB,
 		closeStore: closeStore,
 	}, nil

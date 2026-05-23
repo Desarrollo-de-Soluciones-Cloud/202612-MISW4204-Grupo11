@@ -11,10 +11,9 @@ func TestLoad_Defaults(t *testing.T) {
 	t.Setenv("HTTP_ADDR", "")
 	t.Setenv("GROQ_API_KEY", "")
 	t.Setenv("GROQ_MODEL", "")
-	t.Setenv("BROKER_URL", "")
-	t.Setenv("BROKER_EXCHANGE", "")
-	t.Setenv("BROKER_QUEUE", "")
-	t.Setenv("BROKER_ROUTING_KEY", "")
+	t.Setenv("GCP_PROJECT_ID", "")
+	t.Setenv("PUBSUB_TOPIC_ID", "")
+	t.Setenv("PUBSUB_SUBSCRIPTION_ID", "")
 	t.Setenv("STORAGE_PROVIDER", "")
 	t.Setenv("STORAGE_LOCAL_DIR", "")
 	t.Setenv("GCS_BUCKET", "")
@@ -36,8 +35,8 @@ func TestLoad_Defaults(t *testing.T) {
 	if c.GroqModel != "llama-3.1-8b-instant" {
 		t.Fatalf("groq model default: %q", c.GroqModel)
 	}
-	if c.BrokerURL == "" || c.BrokerExchange == "" || c.BrokerQueue == "" || c.BrokerRoutingKey == "" {
-		t.Fatalf("broker defaults: %+v", c)
+	if c.PubSubProjectID == "" || c.PubSubTopicID == "" || c.PubSubSubscriptionID == "" {
+		t.Fatalf("pubsub defaults: %+v", c)
 	}
 	if c.StorageProvider != "local" || c.StorageLocalDir == "" || c.GCSReportsPrefix == "" {
 		t.Fatalf("storage defaults: %+v", c)
@@ -50,10 +49,9 @@ func TestLoad_CustomEnv(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://custom")
 	t.Setenv("GROQ_API_KEY", "gsk_test123")
 	t.Setenv("GROQ_MODEL", "llama-3.3-70b-versatile")
-	t.Setenv("BROKER_URL", "amqp://rabbitmq:5672/")
-	t.Setenv("BROKER_EXCHANGE", "reports.ex")
-	t.Setenv("BROKER_QUEUE", "reports.q")
-	t.Setenv("BROKER_ROUTING_KEY", "reports.weekly")
+	t.Setenv("GCP_PROJECT_ID", "my-gcp-project")
+	t.Setenv("PUBSUB_TOPIC_ID", "reports-topic")
+	t.Setenv("PUBSUB_SUBSCRIPTION_ID", "reports-sub")
 	t.Setenv("STORAGE_PROVIDER", "gcs")
 	t.Setenv("STORAGE_LOCAL_DIR", "/tmp/uploads")
 	t.Setenv("GCS_BUCKET", "bucket-test")
@@ -69,11 +67,10 @@ func TestLoad_CustomEnv(t *testing.T) {
 	if c.GroqAPIKey != "gsk_test123" || c.GroqModel != "llama-3.3-70b-versatile" {
 		t.Fatalf("groq %+v", c)
 	}
-	if c.BrokerURL != "amqp://rabbitmq:5672/" ||
-		c.BrokerExchange != "reports.ex" ||
-		c.BrokerQueue != "reports.q" ||
-		c.BrokerRoutingKey != "reports.weekly" {
-		t.Fatalf("broker %+v", c)
+	if c.PubSubProjectID != "my-gcp-project" ||
+		c.PubSubTopicID != "reports-topic" ||
+		c.PubSubSubscriptionID != "reports-sub" {
+		t.Fatalf("pubsub %+v", c)
 	}
 	if c.StorageProvider != "gcs" ||
 		c.StorageLocalDir != "/tmp/uploads" ||
