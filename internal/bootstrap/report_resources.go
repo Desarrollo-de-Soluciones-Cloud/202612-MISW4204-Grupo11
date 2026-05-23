@@ -27,6 +27,13 @@ type ReportResources struct {
 	RabbitMQ       *messaging.RabbitMQ
 }
 
+// noOpClose is returned by storage backends that do not keep external resources
+// (e.g. local filesystem), so callers can always invoke a close function safely.
+func noOpClose() {
+	// Explicit no-op to keep a uniform close contract for all storage backends.
+	_ = struct{}{}
+}
+
 func BuildReportResources(ctx context.Context, cfg config.Config) (ReportResources, error) {
 	pool, closeDB, err := postgres.NewPool(ctx, cfg.DBURL)
 	if err != nil {
@@ -79,14 +86,14 @@ func initStorage(ctx context.Context, cfg config.Config) (ports.FileStorage, fun
 	switch cfg.StorageProvider {
 	case "gcs":
 		if cfg.GCSBucket == "" {
-			return nil, func() {}, fmt.Errorf("GCS_BUCKET is required when STORAGE_PROVIDER=gcs")
+			return nil, noOpClose, fmt.Errorf("GCS_BUCKET is required when STORAGE_PROVIDER=gcs")
 		}
 		gcsClient, err := gcsstorage.NewStorage(ctx, cfg.GCSBucket)
 		if err != nil {
-			return nil, func() {}, fmt.Errorf("gcs storage: %w", err)
+			return nil, noOpClose, fmt.Errorf("gcs storage: %w", err)
 		}
 		return gcsClient, func() { gcsClient.Close() }, nil
 	default:
-		return localstorage.NewStorage(cfg.StorageLocalDir), func() {}, nil
+		return localstorage.NewStorage(cfg.StorageLocalDir), noOpClose, nil
 	}
 }

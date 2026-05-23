@@ -11,26 +11,50 @@ import (
 )
 
 type stubAssignmentRepo struct {
-	assignment  *domain.Assignment
-	assignments []domain.Assignment
-	exists      bool
-	err         error
+	assignment                 *domain.Assignment
+	assignments                []domain.Assignment
+	exists                     bool
+	err                        error
+	errCreate                  error
+	errFindByID                error
+	errFindBySpace             error
+	errFindByUser              error
+	errExists                  bool
+	errExistsByUserSpaceRole   error
+	errFindByProfessorWithUser error
+	errListAll                 error
+	errUpdate                  error
 }
 
 func (stub *stubAssignmentRepo) Create(_ context.Context, assignment *domain.Assignment) error {
 	assignment.ID = 1
+	if stub.errCreate != nil {
+		return stub.errCreate
+	}
 	return stub.err
 }
 func (stub *stubAssignmentRepo) FindByID(_ context.Context, _ int64) (*domain.Assignment, error) {
+	if stub.errFindByID != nil {
+		return nil, stub.errFindByID
+	}
 	return stub.assignment, stub.err
 }
 func (stub *stubAssignmentRepo) FindBySpace(_ context.Context, _ int64) ([]domain.Assignment, error) {
+	if stub.errFindBySpace != nil {
+		return nil, stub.errFindBySpace
+	}
 	return stub.assignments, stub.err
 }
 func (stub *stubAssignmentRepo) FindByUser(_ context.Context, _ int64) ([]domain.Assignment, error) {
+	if stub.errFindByUser != nil {
+		return nil, stub.errFindByUser
+	}
 	return stub.assignments, stub.err
 }
 func (stub *stubAssignmentRepo) ExistsByUserSpaceRole(_ context.Context, _, _ int64, _ string) (bool, error) {
+	if stub.errExistsByUserSpaceRole != nil {
+		return false, stub.errExistsByUserSpaceRole
+	}
 	return stub.exists, stub.err
 }
 func (stub *stubAssignmentRepo) FindActiveByUserAndRole(_ context.Context, _ int64, _ string) ([]domain.Assignment, error) {
@@ -38,10 +62,16 @@ func (stub *stubAssignmentRepo) FindActiveByUserAndRole(_ context.Context, _ int
 }
 
 func (stub *stubAssignmentRepo) FindByProfessorWithUser(_ context.Context, _ int64) ([]domain.AssignmentWithUser, error) {
+	if stub.errFindByProfessorWithUser != nil {
+		return nil, stub.errFindByProfessorWithUser
+	}
 	return nil, stub.err
 }
 
 func (stub *stubAssignmentRepo) ListAll(_ context.Context) ([]domain.Assignment, error) {
+	if stub.errListAll != nil {
+		return nil, stub.errListAll
+	}
 	return stub.assignments, stub.err
 }
 
@@ -153,7 +183,18 @@ func newAssignmentSvc(spaceRepo domain.AcademicSpaceRepository, assignRepo domai
 }
 
 func (stub *stubAssignmentRepo) Update(_ context.Context, assignment *domain.Assignment) error {
+	if stub.errUpdate != nil {
+		return stub.errUpdate
+	}
 	return stub.err
+}
+
+type failingHourChecker struct {
+	err error
+}
+
+func (f failingHourChecker) CheckNewAssignment(_ context.Context, _ int64, _ string, _ int) error {
+	return f.err
 }
 
 func TestCreateAssignmentOK(t *testing.T) {
@@ -345,6 +386,71 @@ func TestCreateAssignment_RF05_Violates40PercentRule(t *testing.T) {
 	}
 }
 
+func TestCreateAssignment_PeriodLookupError(t *testing.T) {
+	svc := appspaces.NewAssignmentService(
+		&stubAssignmentRepo{},
+		&stubSpaceRepo{space: activeSpace()},
+		&stubPeriodRepo{err: errors.New("period lookup failed")},
+		appspaces.NoOpHourRuleChecker{},
+	)
+	_, err := svc.CreateAssignment(context.Background(), validAssignmentInput())
+	if err == nil || err.Error() != "error al obtener período académico: period lookup failed" {
+		t.Fatalf("expected wrapped period lookup error, got %v", err)
+	}
+}
+
+func TestCreateAssignment_DuplicateCheckError(t *testing.T) {
+	svc := appspaces.NewAssignmentService(
+		&stubAssignmentRepo{errExistsByUserSpaceRole: errors.New("duplicate check failed")},
+		&stubSpaceRepo{space: activeSpace()},
+		&stubPeriodRepo{period: activePeriod()},
+		appspaces.NoOpHourRuleChecker{},
+	)
+	_, err := svc.CreateAssignment(context.Background(), validAssignmentInput())
+	if err == nil || err.Error() != "error verificando duplicado: duplicate check failed" {
+		t.Fatalf("expected wrapped duplicate check error, got %v", err)
+	}
+}
+
+func TestCreateAssignment_HourCheckerError(t *testing.T) {
+	svc := appspaces.NewAssignmentService(
+		&stubAssignmentRepo{},
+		&stubSpaceRepo{space: activeSpace()},
+		&stubPeriodRepo{period: activePeriod()},
+		failingHourChecker{err: errors.New("hours rule failed")},
+	)
+	_, err := svc.CreateAssignment(context.Background(), validAssignmentInput())
+	if err == nil || err.Error() != "hours rule failed" {
+		t.Fatalf("expected hour checker error, got %v", err)
+	}
+}
+
+func TestCreateAssignment_FindByUserError(t *testing.T) {
+	svc := appspaces.NewAssignmentService(
+		&stubAssignmentRepo{errFindByUser: errors.New("find by user failed")},
+		&stubSpaceRepo{space: activeSpace()},
+		&stubPeriodRepo{period: activePeriod()},
+		appspaces.NoOpHourRuleChecker{},
+	)
+	_, err := svc.CreateAssignment(context.Background(), validAssignmentInput())
+	if err == nil || err.Error() != "error consultando vinculaciones del usuario: find by user failed" {
+		t.Fatalf("expected wrapped find by user error, got %v", err)
+	}
+}
+
+func TestCreateAssignment_CreateRepositoryError(t *testing.T) {
+	svc := appspaces.NewAssignmentService(
+		&stubAssignmentRepo{assignments: []domain.Assignment{}, errCreate: errors.New("create failed")},
+		&stubSpaceRepo{space: activeSpace()},
+		&stubPeriodRepo{period: activePeriod()},
+		appspaces.NoOpHourRuleChecker{},
+	)
+	_, err := svc.CreateAssignment(context.Background(), validAssignmentInput())
+	if err == nil || err.Error() != "error al crear vinculación: create failed" {
+		t.Fatalf("expected wrapped create error, got %v", err)
+	}
+}
+
 func TestUpdateAssignmentByAdmin_OK(t *testing.T) {
 	svc := appspaces.NewAssignmentService(
 		&stubAssignmentRepo{assignment: &domain.Assignment{
@@ -365,4 +471,122 @@ func TestUpdateAssignmentByAdmin_OK(t *testing.T) {
 	if out.RoleInAssignment != "graduate_assistant" || out.ContractedHoursPerWeek != 10 {
 		t.Fatalf("unexpected %+v", out)
 	}
+}
+
+func TestGetAssignment_AuthorizedAndUnauthorized(t *testing.T) {
+	svc := appspaces.NewAssignmentService(
+		&stubAssignmentRepo{assignment: &domain.Assignment{ID: 7, ProfessorID: 10}},
+		&stubSpaceRepo{},
+		&stubPeriodRepo{},
+		appspaces.NoOpHourRuleChecker{},
+	)
+
+	if _, err := svc.GetAssignment(context.Background(), 7, 10); err != nil {
+		t.Fatalf("expected authorized access, got %v", err)
+	}
+	if _, err := svc.GetAssignment(context.Background(), 7, 20); !errors.Is(err, domain.ErrProfesorNoAutorizado) {
+		t.Fatalf("expected ErrProfesorNoAutorizado, got %v", err)
+	}
+}
+
+func TestGetAssignment_RepoError(t *testing.T) {
+	svc := appspaces.NewAssignmentService(
+		&stubAssignmentRepo{err: errors.New("find failed")},
+		&stubSpaceRepo{},
+		&stubPeriodRepo{},
+		appspaces.NoOpHourRuleChecker{},
+	)
+	if _, err := svc.GetAssignment(context.Background(), 7, 10); err == nil {
+		t.Fatal("expected repository error")
+	}
+}
+
+func TestListAssignmentsBySpace_AuthorizedAndUnauthorized(t *testing.T) {
+	repo := &stubAssignmentRepo{assignments: []domain.Assignment{{ID: 1}}}
+	svc := appspaces.NewAssignmentService(
+		repo,
+		&stubSpaceRepo{space: &domain.AcademicSpace{ID: 1, ProfessorID: 10}},
+		&stubPeriodRepo{},
+		appspaces.NoOpHourRuleChecker{},
+	)
+
+	list, err := svc.ListAssignmentsBySpace(context.Background(), 1, 10)
+	if err != nil {
+		t.Fatalf("expected authorized list, got %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("expected one assignment, got %d", len(list))
+	}
+
+	_, err = svc.ListAssignmentsBySpace(context.Background(), 1, 99)
+	if !errors.Is(err, domain.ErrProfesorNoAutorizado) {
+		t.Fatalf("expected ErrProfesorNoAutorizado, got %v", err)
+	}
+}
+
+func TestListAssignmentsBySpace_SpaceLookupError(t *testing.T) {
+	svc := appspaces.NewAssignmentService(
+		&stubAssignmentRepo{},
+		&stubSpaceRepo{err: errors.New("space lookup failed")},
+		&stubPeriodRepo{},
+		appspaces.NoOpHourRuleChecker{},
+	)
+	if _, err := svc.ListAssignmentsBySpace(context.Background(), 1, 10); err == nil {
+		t.Fatal("expected space lookup error")
+	}
+}
+
+func TestListAssignmentsByUser_ProfessorAndAll(t *testing.T) {
+	repo := &stubAssignmentRepo{assignments: []domain.Assignment{{ID: 1}}}
+	svc := appspaces.NewAssignmentService(repo, &stubSpaceRepo{}, &stubPeriodRepo{}, appspaces.NoOpHourRuleChecker{})
+
+	if list, err := svc.ListAssignmentsByUser(context.Background(), 5); err != nil || len(list) != 1 {
+		t.Fatalf("expected list by user success, got list=%v err=%v", list, err)
+	}
+
+	if _, err := svc.ListAssignmentsByProfessor(context.Background(), 10); err != nil {
+		t.Fatalf("expected list by professor success, got %v", err)
+	}
+
+	if list, err := svc.ListAllAssignments(context.Background()); err != nil || len(list) != 1 {
+		t.Fatalf("expected list all success, got list=%v err=%v", list, err)
+	}
+}
+
+func TestUpdateAssignmentByAdmin_ErrorPaths(t *testing.T) {
+	t.Run("find by id fails", func(t *testing.T) {
+		svc := appspaces.NewAssignmentService(
+			&stubAssignmentRepo{errFindByID: errors.New("find failed")},
+			&stubSpaceRepo{},
+			&stubPeriodRepo{},
+			appspaces.NoOpHourRuleChecker{},
+		)
+		if _, err := svc.UpdateAssignmentByAdmin(context.Background(), 7, appspaces.UpdateAssignmentInput{RoleInAssignment: "monitor", ContractedHoursPerWeek: 8}); err == nil {
+			t.Fatal("expected find error")
+		}
+	})
+
+	t.Run("validation fails", func(t *testing.T) {
+		svc := appspaces.NewAssignmentService(
+			&stubAssignmentRepo{assignment: &domain.Assignment{ID: 7, UserID: 1, AcademicSpaceID: 1, ProfessorID: 10, RoleInAssignment: "monitor", ContractedHoursPerWeek: 8}},
+			&stubSpaceRepo{},
+			&stubPeriodRepo{},
+			appspaces.NoOpHourRuleChecker{},
+		)
+		if _, err := svc.UpdateAssignmentByAdmin(context.Background(), 7, appspaces.UpdateAssignmentInput{RoleInAssignment: "invalid-role", ContractedHoursPerWeek: 8}); !errors.Is(err, domain.ErrRolInvalido) {
+			t.Fatalf("expected validation error, got %v", err)
+		}
+	})
+
+	t.Run("update fails", func(t *testing.T) {
+		svc := appspaces.NewAssignmentService(
+			&stubAssignmentRepo{assignment: &domain.Assignment{ID: 7, UserID: 1, AcademicSpaceID: 1, ProfessorID: 10, RoleInAssignment: "monitor", ContractedHoursPerWeek: 8}, errUpdate: errors.New("update failed")},
+			&stubSpaceRepo{},
+			&stubPeriodRepo{},
+			appspaces.NoOpHourRuleChecker{},
+		)
+		if _, err := svc.UpdateAssignmentByAdmin(context.Background(), 7, appspaces.UpdateAssignmentInput{RoleInAssignment: "monitor", ContractedHoursPerWeek: 8}); err == nil {
+			t.Fatal("expected update error")
+		}
+	})
 }

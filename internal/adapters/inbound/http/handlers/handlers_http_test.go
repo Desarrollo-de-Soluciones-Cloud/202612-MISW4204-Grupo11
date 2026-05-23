@@ -518,6 +518,76 @@ func TestTaskHandler_UpdateField_OK(t *testing.T) {
 	}
 }
 
+func TestTaskHandler_ListByAssignment_Unauthorized(t *testing.T) {
+	h, _ := newTaskHandlerForTest(t)
+	c, w := newJSONContext(http.MethodGet, "/assignments/1/tasks", "", nil)
+	c.AddParam("assignmentID", "1")
+	h.ListByAssignment(c)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("code=%d", w.Code)
+	}
+}
+
+func TestTaskHandler_ListByAssignment_InvalidID(t *testing.T) {
+	h, _ := newTaskHandlerForTest(t)
+	c, w := newJSONContext(http.MethodGet, "/assignments/x/tasks", "", int64(1))
+	c.AddParam("assignmentID", "x")
+	h.ListByAssignment(c)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("code=%d", w.Code)
+	}
+}
+
+func TestTaskHandler_ListByAssignment_OK(t *testing.T) {
+	h, repo := newTaskHandlerForTest(t)
+	_ = repo.Create(&domain.Task{
+		Title: "x", Description: "y", Status: domain.StatusOpen,
+		WeekStart: handlerTestMonday, TimeInvested: 2, AssignmentId: 1,
+	})
+	c, w := newJSONContext(http.MethodGet, "/assignments/1/tasks", "", int64(1))
+	c.AddParam("assignmentID", "1")
+	h.ListByAssignment(c)
+	if w.Code != http.StatusOK {
+		t.Fatalf("code=%d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestTaskHandler_GetAttachments_InvalidID(t *testing.T) {
+	h, _ := newTaskHandlerForTest(t)
+	c, w := newJSONContext(http.MethodGet, "/tasks/x/attachments", "", int64(1))
+	c.AddParam("id", "x")
+	h.GetAttachments(c)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("code=%d", w.Code)
+	}
+}
+
+func TestTaskHandler_GetAttachments_NotFound(t *testing.T) {
+	h, _ := newTaskHandlerForTest(t)
+	c, w := newJSONContext(http.MethodGet, "/tasks/99/attachments", "", int64(1))
+	c.AddParam("id", "99")
+	h.GetAttachments(c)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("code=%d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestTaskHandler_GetAttachments_OK(t *testing.T) {
+	h, repo := newTaskHandlerForTest(t)
+	_ = repo.Create(&domain.Task{
+		Title: "x", Description: "y", Status: domain.StatusOpen,
+		WeekStart: handlerTestMonday, TimeInvested: 2, AssignmentId: 1,
+	})
+	repo.attachments = append(repo.attachments, &domain.Attachment{TaskID: 1, FileName: "a.txt"})
+
+	c, w := newJSONContext(http.MethodGet, "/tasks/1/attachments", "", int64(1))
+	c.AddParam("id", "1")
+	h.GetAttachments(c)
+	if w.Code != http.StatusOK {
+		t.Fatalf("code=%d %s", w.Code, w.Body.String())
+	}
+}
+
 func TestTaskHandler_UploadAttachment_MissingFile(t *testing.T) {
 	h, repo := newTaskHandlerForTest(t)
 	_ = repo.Create(&domain.Task{
