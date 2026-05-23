@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 )
 
 // defaultLocalPostgresURL matches docker-compose postgres service (app/app on localhost:5432).
@@ -21,6 +22,7 @@ type Config struct {
 	PubSubProjectID     string
 	PubSubTopicID       string
 	PubSubSubscriptionID string
+	CORSAllowedOrigins  []string
 }
 
 // Load reads configuration from environment variables.
@@ -48,8 +50,24 @@ func Load() (Config, error) {
 	config.PubSubProjectID = envOrDefault("GCP_PROJECT_ID", "local-project")
 	config.PubSubTopicID = envOrDefault("PUBSUB_TOPIC_ID", "reports")
 	config.PubSubSubscriptionID = envOrDefault("PUBSUB_SUBSCRIPTION_ID", "reports-weekly-generate")
+	config.CORSAllowedOrigins = parseCSV(os.Getenv("CORS_ALLOWED_ORIGINS"))
 
 	return config, nil
+}
+
+func parseCSV(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
 }
 
 func envOrDefault(key, fallback string) string {
