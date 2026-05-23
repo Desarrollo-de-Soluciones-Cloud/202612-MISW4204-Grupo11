@@ -11,20 +11,24 @@ import (
 )
 
 type Deps struct {
-	Readiness   *application.Readiness
-	JWTSecret   []byte
-	Auth        *handlers.Auth
-	Users       *handlers.Users
-	Admin       *handlers.Admin
-	TaskHandler *handlers.TaskHandler
-	AcadSpaces  *handlers.AcademicSpaceHandler
-	Periods     *handlers.AcademicPeriodHandler
-	Assignments *handlers.AssignmentHandler
-	Reports     *handlers.ReportHandler
+	Readiness          *application.Readiness
+	JWTSecret          []byte
+	CORSAllowedOrigins []string
+	Auth               *handlers.Auth
+	Users              *handlers.Users
+	Admin              *handlers.Admin
+	TaskHandler        *handlers.TaskHandler
+	AcadSpaces         *handlers.AcademicSpaceHandler
+	Periods            *handlers.AcademicPeriodHandler
+	Assignments        *handlers.AssignmentHandler
+	Reports            *handlers.ReportHandler
 }
 
 func NewEngine(deps Deps) *gin.Engine {
 	router := gin.Default()
+	if len(deps.CORSAllowedOrigins) > 0 {
+		router.Use(middleware.CORS(deps.CORSAllowedOrigins))
+	}
 	router.Static("/uploads", "./Uploads")
 
 	router.GET("/health", func(ginCtx *gin.Context) {

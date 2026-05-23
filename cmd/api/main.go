@@ -122,16 +122,17 @@ func buildResources(ctx context.Context, cfg config.Config) (appResources, error
 
 	readiness := &application.Readiness{DB: resources.Pool}
 	engine := httpadapter.NewEngine(httpadapter.Deps{
-		Readiness:   readiness,
-		JWTSecret:   jwtSecret,
-		Auth:        &handlers.Auth{Login: loginSvc},
-		Users:       &handlers.Users{Admin: adminSvc, JWTSecret: jwtSecret},
-		Admin:       adminHandler,
-		TaskHandler: taskHandler,
-		AcadSpaces:  spaceHandler,
-		Periods:     periodHandler,
-		Assignments: assignmentHandler,
-		Reports:     reportHandler,
+		Readiness:          readiness,
+		JWTSecret:          jwtSecret,
+		CORSAllowedOrigins: cfg.CORSAllowedOrigins,
+		Auth:               &handlers.Auth{Login: loginSvc},
+		Users:              &handlers.Users{Admin: adminSvc, JWTSecret: jwtSecret},
+		Admin:              adminHandler,
+		TaskHandler:        taskHandler,
+		AcadSpaces:         spaceHandler,
+		Periods:            periodHandler,
+		Assignments:        assignmentHandler,
+		Reports:            reportHandler,
 	})
 
 	server := &http.Server{
