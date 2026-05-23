@@ -59,10 +59,10 @@ services:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
       GROQ_API_KEY: ${GROQ_API_KEY:?GROQ_API_KEY is required}
       GROQ_MODEL: ${GROQ_MODEL:-llama-3.1-8b-instant}
-      BROKER_URL: amqp://guest:guest@rabbitmq:5672/
-      BROKER_EXCHANGE: reports
-      BROKER_QUEUE: reports.weekly.generate
-      BROKER_ROUTING_KEY: reports.weekly.generate
+      PUBSUB_EMULATOR_HOST: pubsub-emulator:8085
+      GCP_PROJECT_ID: local-project
+      PUBSUB_TOPIC_ID: reports
+      PUBSUB_SUBSCRIPTION_ID: reports-weekly-generate
       STORAGE_PROVIDER: local
       STORAGE_LOCAL_DIR: ./uploads
       GCS_REPORTS_PREFIX: reports
@@ -71,7 +71,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      rabbitmq:
+      pubsub-emulator:
         condition: service_healthy
 
 volumes:
