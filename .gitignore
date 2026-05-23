@@ -8,6 +8,14 @@
 coverage.out
 coverage.html
 
+# Generated uploads
+uploads/**
+!uploads/.gitkeep
+!uploads/attachments/
+!uploads/attachments/.gitkeep
+!uploads/reports/
+!uploads/reports/.gitkeep
+
 # Entorno local (no versionar secretos)
 .env
 
@@ -24,3 +32,6 @@ projectFilesBackup*/
 # OS
 .DS_Store
 Thumbs.db
+
+# Coverage artifacts (local only)
+coverage_*.out

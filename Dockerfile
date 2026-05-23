@@ -7,11 +7,13 @@ COPY go.mod ./
 RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/api ./cmd/api
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/worker-reports ./cmd/worker-reports
 
 FROM alpine:3.21
 RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 COPY --from=build /out/api ./api
+COPY --from=build /out/worker-reports ./worker-reports
 RUN mkdir -p /app/uploads/reports && chown -R nobody:nobody /app/uploads
 USER nobody
 EXPOSE 8080

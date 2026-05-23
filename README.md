@@ -31,10 +31,10 @@ Este repositorio es el espacio de trabajo del **Grupo 11** para el proyecto del 
    cd <raiz-del-proyecto>
    ```
 
-2. Levanta dependencias base (**PostgreSQL + RabbitMQ + Ollama**) en segundo plano:
+2. Levanta dependencias base (**PostgreSQL + RabbitMQ**) en segundo plano:
 
    ```bash
-   docker compose up -d postgres rabbitmq ollama
+   docker compose up -d postgres rabbitmq
    ```
 
 3. Verifica estado de contenedores (espera a que estén *healthy*):
@@ -48,6 +48,7 @@ Este repositorio es el espacio de trabajo del **Grupo 11** para el proyecto del 
    ```powershell
    $env:JWT_SECRET="desarrollo-cambia-esto-por-algo-largo-y-secreto"
    $env:DATABASE_URL="postgres://app:app@127.0.0.1:5432/app?sslmode=disable"
+   $env:GROQ_API_KEY="gsk_tu_api_key"
    $env:BROKER_URL="amqp://guest:guest@127.0.0.1:5672/"
    go run ./cmd/api
    ```
@@ -109,9 +110,9 @@ go test ./...
 go vet ./...
 ```
 
-### Todo con Docker (API + Postgres + RabbitMQ + Ollama)
+### Todo con Docker (API + worker de reportes + Postgres + RabbitMQ)
 
-Antes de levantar contenedores, crea tu `.env` local a partir de [.env.example](.env.example) y define como mínimo: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DATABASE_URL` y `JWT_SECRET`.
+Antes de levantar contenedores, crea tu `.env` local a partir de [.env.example](.env.example) y define como mínimo: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DATABASE_URL`, `JWT_SECRET` y `GROQ_API_KEY`.
 
 Ejemplo rápido (PowerShell):
 
@@ -124,6 +125,8 @@ docker compose up --build
 ```
 
 Mismas rutas: `GET /health` y `GET /health/ready`.
+
+El proceso de reportes corre en el servicio `worker-reports`, separado de la API.
 
 Variables: [.env.example](.env.example).
 
