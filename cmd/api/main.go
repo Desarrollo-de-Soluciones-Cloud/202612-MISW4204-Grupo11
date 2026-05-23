@@ -13,6 +13,7 @@ import (
 
 	httpadapter "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/http"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/inbound/http/handlers"
+	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/outbound/messaging"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/outbound/postgres"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application"
 	appadmin "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/admin"
@@ -27,7 +28,7 @@ import (
 
 type appResources struct {
 	server     *http.Server
-	rabbitmq   interface{ Close() error }
+	pubsub     *messaging.PubSubClient
 	closeDB    func()
 	closeStore func()
 }
@@ -54,8 +55,8 @@ func run(ctx context.Context) error {
 		return err
 	}
 	defer func() {
-		if resources.rabbitmq != nil {
-			_ = resources.rabbitmq.Close()
+		if resources.pubsub != nil {
+			_ = resources.pubsub.Close()
 		}
 	}()
 	defer resources.closeStore()
@@ -106,8 +107,8 @@ func buildResources(ctx context.Context, cfg config.Config) (appResources, error
 	taskHandler := handlers.NewTaskHandler(taskService)
 
 	reportService := resources.ReportService
-	rabbitmqClient := resources.RabbitMQ
-	reportSubmitService := appreports.NewSubmitService(rabbitmqClient)
+	pubsubClient := resources.PubSub
+	reportSubmitService := appreports.NewSubmitService(pubsubClient)
 	reportHandler := handlers.NewReportHandler(reportService, reportSubmitService).WithStorage(resources.FileStorage)
 
 	platformOverview := appadmin.NewPlatformOverviewService(
@@ -143,7 +144,7 @@ func buildResources(ctx context.Context, cfg config.Config) (appResources, error
 
 	return appResources{
 		server:     server,
-		rabbitmq:   rabbitmqClient,
+		pubsub:     pubsubClient,
 		closeDB:    resources.CloseDB,
 		closeStore: resources.CloseStore,
 	}, nil

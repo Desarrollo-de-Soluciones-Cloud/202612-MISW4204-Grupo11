@@ -15,16 +15,17 @@ services:
       timeout: 5s
       retries: 5
 
-  rabbitmq:
-    image: rabbitmq:3.13-management
+  pubsub-emulator:
+    image: gcr.io/google.com/cloudsdktool/cloud-sdk:emulators
+    command: gcloud beta emulators pubsub start --host-port=0.0.0.0:8085
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "8085:8085"
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
-      interval: 10s
+      test: ["CMD-SHELL", "curl -sf http://localhost:8085 > /dev/null || exit 1"]
+      interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 12
+      start_period: 10s
 
   api:
     build: .
@@ -34,10 +35,10 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       GROQ_API_KEY: ${GROQ_API_KEY:?GROQ_API_KEY is required}
       GROQ_MODEL: ${GROQ_MODEL:-llama-3.1-8b-instant}
-      BROKER_URL: amqp://guest:guest@rabbitmq:5672/
-      BROKER_EXCHANGE: reports
-      BROKER_QUEUE: reports.weekly.generate
-      BROKER_ROUTING_KEY: reports.weekly.generate
+      PUBSUB_EMULATOR_HOST: pubsub-emulator:8085
+      GCP_PROJECT_ID: local-project
+      PUBSUB_TOPIC_ID: reports
+      PUBSUB_SUBSCRIPTION_ID: reports-weekly-generate
       STORAGE_PROVIDER: local
       STORAGE_LOCAL_DIR: ./uploads
       GCS_REPORTS_PREFIX: reports
@@ -48,7 +49,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      rabbitmq:
+      pubsub-emulator:
         condition: service_healthy
 
   worker-reports:

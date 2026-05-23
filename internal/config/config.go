@@ -16,12 +16,11 @@ type Config struct {
 	GroqModel        string
 	StorageProvider  string
 	StorageLocalDir  string
-	GCSBucket        string
-	GCSReportsPrefix string
-	BrokerURL        string
-	BrokerExchange   string
-	BrokerQueue      string
-	BrokerRoutingKey string
+	GCSBucket           string
+	GCSReportsPrefix    string
+	PubSubProjectID     string
+	PubSubTopicID       string
+	PubSubSubscriptionID string
 }
 
 // Load reads configuration from environment variables.
@@ -46,10 +45,9 @@ func Load() (Config, error) {
 	config.StorageLocalDir = envOrDefault("STORAGE_LOCAL_DIR", "./uploads")
 	config.GCSBucket = os.Getenv("GCS_BUCKET")
 	config.GCSReportsPrefix = envOrDefault("GCS_REPORTS_PREFIX", "reports")
-	config.BrokerURL = envOrDefault("BROKER_URL", "amqp://guest:guest@localhost:5672/")
-	config.BrokerExchange = envOrDefault("BROKER_EXCHANGE", "reports")
-	config.BrokerQueue = envOrDefault("BROKER_QUEUE", "reports.weekly.generate")
-	config.BrokerRoutingKey = envOrDefault("BROKER_ROUTING_KEY", "reports.weekly.generate")
+	config.PubSubProjectID = envOrDefault("GCP_PROJECT_ID", "local-project")
+	config.PubSubTopicID = envOrDefault("PUBSUB_TOPIC_ID", "reports")
+	config.PubSubSubscriptionID = envOrDefault("PUBSUB_SUBSCRIPTION_ID", "reports-weekly-generate")
 
 	return config, nil
 }

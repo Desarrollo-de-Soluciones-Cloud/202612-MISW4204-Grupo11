@@ -24,13 +24,11 @@ type ReportResources struct {
 	AssignmentRepo domain.AssignmentRepository
 	TaskRepo       ports.TaskRepository
 	ReportService  *appreports.ReportService
-	RabbitMQ       *messaging.RabbitMQ
+	PubSub         *messaging.PubSubClient
 }
 
-// noOpClose is returned by storage backends that do not keep external resources
-// (e.g. local filesystem), so callers can always invoke a close function safely.
 func noOpClose() {
-	// Explicit no-op to keep a uniform close contract for all storage backends.
+	// no-op: local storage has no external resources to release.
 	_ = struct{}{}
 }
 
@@ -63,11 +61,11 @@ func BuildReportResources(ctx context.Context, cfg config.Config) (ReportResourc
 	pdfGenerator := pdf.NewGenerator(fileStorage, cfg.GCSReportsPrefix)
 	reportService := appreports.NewReportService(reportRepo, assignmentRepo, taskRepo, groqClient, pdfGenerator)
 
-	rabbitmqClient, err := messaging.NewRabbitMQ(cfg.BrokerURL, cfg.BrokerExchange, cfg.BrokerQueue, cfg.BrokerRoutingKey)
+	pubsubClient, err := messaging.NewPubSubClient(ctx, cfg.PubSubProjectID, cfg.PubSubTopicID, cfg.PubSubSubscriptionID)
 	if err != nil {
 		closeStore()
 		closeDB()
-		return ReportResources{}, fmt.Errorf("rabbitmq: %w", err)
+		return ReportResources{}, fmt.Errorf("pubsub: %w", err)
 	}
 
 	return ReportResources{
@@ -78,7 +76,7 @@ func BuildReportResources(ctx context.Context, cfg config.Config) (ReportResourc
 		AssignmentRepo: assignmentRepo,
 		TaskRepo:       taskRepo,
 		ReportService:  reportService,
-		RabbitMQ:       rabbitmqClient,
+		PubSub:         pubsubClient,
 	}, nil
 }
 

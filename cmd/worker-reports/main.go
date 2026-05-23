@@ -34,13 +34,13 @@ func run(ctx context.Context) error {
 		return err
 	}
 	defer func() {
-		_ = resources.RabbitMQ.Close()
+		_ = resources.PubSub.Close()
 		resources.CloseStore()
 		resources.CloseDB()
 	}()
 
-	if err := resources.RabbitMQ.ConsumeWeeklyReportJobs(ctx, resources.ReportService.ProcessWeeklyReportJob); err != nil {
-		return fmt.Errorf("rabbitmq consumer: %w", err)
+	if err := resources.PubSub.ConsumeWeeklyReportJobs(ctx, resources.ReportService.ProcessWeeklyReportJob); err != nil {
+		return fmt.Errorf("pubsub consumer: %w", err)
 	}
 
 	log.Printf("report worker ready")
