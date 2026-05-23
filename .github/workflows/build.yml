@@ -106,57 +106,66 @@ jobs:
         shell: bash
         run: |
           python - <<'PY'
+          import base64
           import json
           import os
           import sys
           import time
+          import urllib.error
           import urllib.parse
           import urllib.request
 
-          report_task = os.path.join('.scannerwork', 'report-task.txt')
-          values = {}
-          with open(report_task, encoding='utf-8') as handle:
+          try:
+            report_task = os.path.join('.scannerwork', 'report-task.txt')
+            values = {}
+            with open(report_task, encoding='utf-8') as handle:
               for raw_line in handle:
-                  line = raw_line.strip()
-                  if '=' in line:
-                      key, value = line.split('=', 1)
-                      values[key] = value
+                line = raw_line.strip()
+                if '=' in line:
+                  key, value = line.split('=', 1)
+                  values[key] = value
 
-          host = values.get('serverUrl') or os.environ['SONAR_HOST_URL']
-          token = os.environ['SONAR_TOKEN']
-          task_id = values['ceTaskId']
+            host = (values.get('serverUrl') or os.environ['SONAR_HOST_URL']).rstrip('/')
+            token = os.environ['SONAR_TOKEN']
+            task_id = values['ceTaskId']
 
-          password_mgr = urllib.request.HTTPPasswordMgrWithDefaultRealm()
-          password_mgr.add_password(None, host, token, '')
-          opener = urllib.request.build_opener(urllib.request.HTTPBasicAuthHandler(password_mgr))
+            basic = base64.b64encode(f"{token}:".encode('utf-8')).decode('ascii')
 
-          def get_json(url: str):
-              with opener.open(urllib.request.Request(url)) as response:
-                  return json.load(response)
+            def get_json(url: str):
+              req = urllib.request.Request(url)
+              req.add_header('Authorization', f'Basic {basic}')
+              with urllib.request.urlopen(req) as response:
+                return json.load(response)
 
-          task = None
-          for _ in range(30):
+            task = None
+            for _ in range(30):
               task = get_json(f"{host}/api/ce/task?id={urllib.parse.quote(task_id)}").get('task', {})
               if task.get('status') in {'SUCCESS', 'FAILED', 'CANCELED'}:
-                  break
+                break
               time.sleep(2)
 
-          analysis_id = task.get('analysisId')
-          if not analysis_id:
+            analysis_id = task.get('analysisId') if task else None
+            if not analysis_id:
               print('SonarQube analysisId not available yet; skipping detailed diagnostics.')
               sys.exit(0)
 
-          status_payload = get_json(
+            status_payload = get_json(
               f"{host}/api/qualitygates/project_status?analysisId={urllib.parse.quote(analysis_id)}"
-          )
-          project_status = status_payload.get('projectStatus', {})
-          print(f"Quality Gate status: {project_status.get('status')}")
-          for condition in project_status.get('conditions', []):
+            )
+            project_status = status_payload.get('projectStatus', {})
+            print(f"Quality Gate status: {project_status.get('status')}")
+            for condition in project_status.get('conditions', []):
               if condition.get('status') != 'OK':
-                  metric = condition.get('metricKey')
-                  actual = condition.get('actualValue')
-                  threshold = condition.get('errorThreshold')
-                  print(f"- {metric}: actual={actual} threshold={threshold} status={condition.get('status')}")
+                metric = condition.get('metricKey')
+                actual = condition.get('actualValue')
+                threshold = condition.get('errorThreshold')
+                print(f"- {metric}: actual={actual} threshold={threshold} status={condition.get('status')}")
+          except urllib.error.HTTPError as error:
+            print(f"SonarQube diagnostics skipped: HTTP {error.code}")
+            sys.exit(0)
+          except Exception as error:
+            print(f"SonarQube diagnostics skipped: {error}")
+            sys.exit(0)
           PY
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
