@@ -47,7 +47,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.26"
+          go-version: "1.25"
           cache: true
 
       - name: Download dependencies
@@ -102,8 +102,90 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
       - name: SonarQube Quality Gate
+        id: quality_gate
         uses: SonarSource/sonarqube-quality-gate-action@v1
         timeout-minutes: 5
+        continue-on-error: true
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: SonarQube diagnostics
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import base64
+          import json
+          import os
+          import sys
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          try:
+            report_task = os.path.join('.scannerwork', 'report-task.txt')
+            values = {}
+            with open(report_task, encoding='utf-8') as handle:
+              for raw_line in handle:
+                line = raw_line.strip()
+                if '=' in line:
+                  key, value = line.split('=', 1)
+                  values[key] = value
+
+            host = (values.get('serverUrl') or os.environ['SONAR_HOST_URL']).rstrip('/')
+            token = os.environ['SONAR_TOKEN']
+            task_id = values['ceTaskId']
+
+            basic = base64.b64encode(f"{token}:".encode('utf-8')).decode('ascii')
+
+            def get_json(url: str):
+              req = urllib.request.Request(url)
+              req.add_header('Authorization', f'Basic {basic}')
+              with urllib.request.urlopen(req) as response:
+                return json.load(response)
+
+            task = None
+            for _ in range(30):
+              task = get_json(f"{host}/api/ce/task?id={urllib.parse.quote(task_id)}").get('task', {})
+              if task.get('status') in {'SUCCESS', 'FAILED', 'CANCELED'}:
+                break
+              time.sleep(2)
+
+            analysis_id = task.get('analysisId') if task else None
+            if not analysis_id:
+              print('SonarQube analysisId not available yet; skipping detailed diagnostics.')
+              sys.exit(0)
+
+            status_payload = get_json(
+              f"{host}/api/qualitygates/project_status?analysisId={urllib.parse.quote(analysis_id)}"
+            )
+            project_status = status_payload.get('projectStatus', {})
+            print(f"Quality Gate status: {project_status.get('status')}")
+            for condition in project_status.get('conditions', []):
+              if condition.get('status') != 'OK':
+                metric = condition.get('metricKey')
+                actual = condition.get('actualValue')
+                threshold = condition.get('errorThreshold')
+                print(f"- {metric}: actual={actual} threshold={threshold} status={condition.get('status')}")
+          except urllib.error.HTTPError as error:
+            print(f"SonarQube diagnostics skipped: HTTP {error.code}")
+            sys.exit(0)
+          except Exception as error:
+            print(f"SonarQube diagnostics skipped: {error}")
+            sys.exit(0)
+          PY
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      - name: Enforce Quality Gate result
+        if: always()
+        shell: bash
+        run: |
+          if [ "${{ steps.quality_gate.outcome }}" != "success" ]; then
+            echo "Quality Gate has FAILED."
+            exit 1
+          fi
