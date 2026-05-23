@@ -5,10 +5,12 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/application/ports"
 	"github.com/go-pdf/fpdf"
 	"github.com/google/uuid"
+	"golang.org/x/text/encoding/charmap"
 )
 
 type Generator struct {
@@ -31,7 +33,7 @@ func (g *Generator) Generate(data ports.PDFReportData) (string, error) {
 
 	// Title
 	pdf.SetFont("Arial", "B", 16)
-	pdf.CellFormat(0, 10, "Reporte Semanal de Actividades", "", 1, "C", false, 0, "")
+	pdf.CellFormat(0, 10, enc("Reporte Semanal de Actividades"), "", 1, "C", false, 0, "")
 	pdf.Ln(4)
 
 	// Person info
@@ -40,21 +42,21 @@ func (g *Generator) Generate(data ports.PDFReportData) (string, error) {
 	weekRange := fmt.Sprintf("Semana del %s al %s", data.WeekStart.Format("2006-01-02"), weekEnd.Format("2006-01-02"))
 
 	pdf.SetFont("Arial", "", 12)
-	pdf.CellFormat(0, 7, subtitle, "", 1, "C", false, 0, "")
-	pdf.CellFormat(0, 7, weekRange, "", 1, "C", false, 0, "")
-	pdf.CellFormat(0, 7, data.UserEmail, "", 1, "C", false, 0, "")
+	pdf.CellFormat(0, 7, enc(subtitle), "", 1, "C", false, 0, "")
+	pdf.CellFormat(0, 7, enc(weekRange), "", 1, "C", false, 0, "")
+	pdf.CellFormat(0, 7, enc(data.UserEmail), "", 1, "C", false, 0, "")
 	pdf.Ln(6)
 
 	// AI Summary section
 	pdf.SetFont("Arial", "B", 13)
-	pdf.CellFormat(0, 8, "Resumen", "", 1, "L", false, 0, "")
+	pdf.CellFormat(0, 8, enc("Resumen"), "", 1, "L", false, 0, "")
 	pdf.SetFont("Arial", "", 11)
-	pdf.MultiCell(0, 6, data.AISummary, "", "L", false)
+	pdf.MultiCell(0, 6, enc(data.AISummary), "", "L", false)
 	pdf.Ln(6)
 
 	// Task table
 	pdf.SetFont("Arial", "B", 13)
-	pdf.CellFormat(0, 8, "Detalle de Tareas", "", 1, "L", false, 0, "")
+	pdf.CellFormat(0, 8, enc("Detalle de Tareas"), "", 1, "L", false, 0, "")
 	pdf.Ln(2)
 
 	// Table header
@@ -64,7 +66,7 @@ func (g *Generator) Generate(data ports.PDFReportData) (string, error) {
 	pdf.SetFont("Arial", "B", 10)
 	pdf.SetFillColor(220, 220, 220)
 	for i, h := range headers {
-		pdf.CellFormat(colWidths[i], 8, h, "1", 0, "C", true, 0, "")
+		pdf.CellFormat(colWidths[i], 8, enc(h), "1", 0, "C", true, 0, "")
 	}
 	pdf.Ln(-1)
 
@@ -73,16 +75,16 @@ func (g *Generator) Generate(data ports.PDFReportData) (string, error) {
 	pdf.SetFillColor(245, 245, 245)
 	for i, task := range data.Tasks {
 		fill := i%2 == 1
-		pdf.CellFormat(colWidths[0], 7, truncate(task.Title, 30), "1", 0, "L", fill, 0, "")
-		pdf.CellFormat(colWidths[1], 7, string(task.Status), "1", 0, "C", fill, 0, "")
+		pdf.CellFormat(colWidths[0], 7, enc(truncate(task.Title, 30)), "1", 0, "L", fill, 0, "")
+		pdf.CellFormat(colWidths[1], 7, enc(string(task.Status)), "1", 0, "C", fill, 0, "")
 		pdf.CellFormat(colWidths[2], 7, fmt.Sprintf("%d", task.TimeInvested), "1", 0, "C", fill, 0, "")
-		pdf.CellFormat(colWidths[3], 7, truncate(task.Description, 45), "1", 0, "L", fill, 0, "")
+		pdf.CellFormat(colWidths[3], 7, enc(truncate(task.Description, 45)), "1", 0, "L", fill, 0, "")
 		pdf.Ln(-1)
 
 		if task.Observations != "" {
 			pdf.SetFont("Arial", "I", 8)
 			pdf.CellFormat(colWidths[0], 6, "", "", 0, "", false, 0, "")
-			pdf.MultiCell(colWidths[1]+colWidths[2]+colWidths[3], 5, "Obs: "+truncate(task.Observations, 80), "", "L", false)
+			pdf.MultiCell(colWidths[1]+colWidths[2]+colWidths[3], 5, enc("Obs: "+truncate(task.Observations, 80)), "", "L", false)
 			pdf.SetFont("Arial", "", 9)
 		}
 	}
@@ -91,8 +93,8 @@ func (g *Generator) Generate(data ports.PDFReportData) (string, error) {
 
 	// Hours summary
 	pdf.SetFont("Arial", "B", 11)
-	pdf.CellFormat(0, 7, fmt.Sprintf("Total horas reportadas: %d / Horas contratadas: %d",
-		data.TotalHoursWorked, data.ContractedHours), "", 1, "L", false, 0, "")
+	pdf.CellFormat(0, 7, enc(fmt.Sprintf("Total horas reportadas: %d / Horas contratadas: %d",
+		data.TotalHoursWorked, data.ContractedHours)), "", 1, "L", false, 0, "")
 
 	var buf bytes.Buffer
 	if err := pdf.Output(&buf); err != nil {
@@ -118,6 +120,22 @@ func roleLabel(role string) string {
 	default:
 		return role
 	}
+}
+
+func enc(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	encoder := charmap.Windows1252.NewEncoder()
+	for _, r := range s {
+		encoded, err := encoder.String(string(r))
+		if err != nil {
+			b.WriteByte('?')
+			encoder = charmap.Windows1252.NewEncoder()
+			continue
+		}
+		b.WriteString(encoded)
+	}
+	return b.String()
 }
 
 func truncate(s string, maxLen int) string {

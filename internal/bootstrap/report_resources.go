@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/outbound/groq"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/outbound/messaging"
-	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/outbound/ollama"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/outbound/pdf"
 	"github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/outbound/postgres"
 	gcsstorage "github.com/Desarrollo-de-Soluciones-Cloud/202612-MISW4204-Grupo11/internal/adapters/outbound/storage/gcs"
@@ -52,10 +52,9 @@ func BuildReportResources(ctx context.Context, cfg config.Config) (ReportResourc
 	assignmentRepo := postgres.NewAssignmentRepo(pool)
 	taskRepo := postgres.NewTaskRepository(db)
 	reportRepo := postgres.NewReportRepo(pool)
-	ollamaClient := ollama.NewClient(cfg.OllamaURL, cfg.OllamaModel)
-	ollamaClient.EnsureModel(ctx)
+	groqClient := groq.NewClient(cfg.GroqAPIKey, cfg.GroqModel)
 	pdfGenerator := pdf.NewGenerator(fileStorage, cfg.GCSReportsPrefix)
-	reportService := appreports.NewReportService(reportRepo, assignmentRepo, taskRepo, ollamaClient, pdfGenerator)
+	reportService := appreports.NewReportService(reportRepo, assignmentRepo, taskRepo, groqClient, pdfGenerator)
 
 	rabbitmqClient, err := messaging.NewRabbitMQ(cfg.BrokerURL, cfg.BrokerExchange, cfg.BrokerQueue, cfg.BrokerRoutingKey)
 	if err != nil {
